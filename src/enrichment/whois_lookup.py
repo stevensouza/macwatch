@@ -5,7 +5,7 @@ import subprocess
 import threading
 import time
 
-from macwatch.config import WHOIS_CACHE_TTL
+from src.config import WHOIS_CACHE_TTL
 
 _cache = {}
 _lock = threading.Lock()

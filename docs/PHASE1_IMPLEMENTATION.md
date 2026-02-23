@@ -15,7 +15,7 @@ Expand MacWatch from a network-only monitor into a full system health dashboard 
 
 ## 1. Top Tab Bar Navigation
 
-Add a tab bar between the header and `<main>` in `macwatch/templates/dashboard.html`:
+Add a tab bar between the header and `<main>` in `src/templates/dashboard.html`:
 
 ```html
 <nav class="tab-bar" id="tab-bar">
@@ -25,12 +25,12 @@ Add a tab bar between the header and `<main>` in `macwatch/templates/dashboard.h
 </nav>
 ```
 
-**CSS additions in `macwatch/static/css/style.css`:**
+**CSS additions in `src/static/css/style.css`:**
 - `.tab-bar` — horizontal flex bar, glassmorphism style matching header/footer
 - `.tab` — pill-shaped buttons, teal accent on active, smooth transitions
 - Health score dot badges on tabs (small colored circle next to tab label)
 
-**JS changes in `macwatch/static/js/dashboard.js`:**
+**JS changes in `src/static/js/dashboard.js`:**
 - `activeSection` state variable (default: `'overview'`)
 - `switchSection(name)` — hides all `.section-panel` divs, shows the active one, updates tab `.active` class
 - Each section has its own fetch function and refresh timer
@@ -53,7 +53,7 @@ Add a tab bar between the header and `<main>` in `macwatch/templates/dashboard.h
 
 ## 2. New Collectors
 
-### `macwatch/collectors/system.py` (new file)
+### `src/collectors/system.py` (new file)
 
 Three functions following the existing collector pattern (subprocess with timeout, try/except, return safe defaults):
 
@@ -68,7 +68,7 @@ Three functions following the existing collector pattern (subprocess with timeou
 - Returns: `{cpu_model, os_version, os_build, uptime_seconds, uptime_formatted, logical_cpus}`
 - Called once on startup and cached (static info)
 
-### `macwatch/collectors/process.py` (modify existing)
+### `src/collectors/process.py` (modify existing)
 
 Expand `collect_ps()` to also return `rss` (resident memory in KB):
 - Change command to `ps -eo pid,pcpu,pmem,rss,comm`
@@ -76,7 +76,7 @@ Expand `collect_ps()` to also return `rss` (resident memory in KB):
 
 ---
 
-## 3. Health Scoring — `macwatch/analysis/health.py` (new file)
+## 3. Health Scoring — `src/analysis/health.py` (new file)
 
 ```python
 def score_cpu(cpu_data) -> dict:       # {score: 0-100, level: str, color: str}
@@ -94,7 +94,7 @@ Score-to-color: 80–100=green, 60–79=yellow, 40–59=orange, 0–39=red
 
 ---
 
-## 4. New API Routes — `macwatch/app.py`
+## 4. New API Routes — `src/app.py`
 
 ```
 GET /api/system    → {cpu: {...}, memory: {...}, system_info: {...}, top_processes: [...]}
@@ -108,7 +108,7 @@ GET /api/overview  → {health_scores: {cpu: {}, memory: {}, network: {}}, highl
 
 ---
 
-## 5. Config Additions — `macwatch/config.py`
+## 5. Config Additions — `src/config.py`
 
 ```python
 # Cache TTLs for new endpoints
@@ -167,7 +167,7 @@ Both sections reuse the existing glassmorphism card styling.
 
 ---
 
-## 8. Utils Additions — `macwatch/utils.py`
+## 8. Utils Additions — `src/utils.py`
 
 ```python
 def format_duration(seconds):  # "6d 16h 32m"
@@ -184,21 +184,21 @@ Also move `_is_private()` from `app.py` to `utils.py` (currently duplicated in `
 
 | File | Purpose |
 |------|---------|
-| `macwatch/collectors/system.py` | CPU, memory, system info collectors |
-| `macwatch/analysis/health.py` | Health scoring (0–100) per subsystem |
+| `src/collectors/system.py` | CPU, memory, system info collectors |
+| `src/analysis/health.py` | Health scoring (0–100) per subsystem |
 
 ### Modified files
 
 | File | Changes |
 |------|---------|
-| `macwatch/templates/dashboard.html` | Add tab bar, section panels |
-| `macwatch/static/css/style.css` | Tab bar, gauge bars, health cards, section panels |
-| `macwatch/static/js/dashboard.js` | Section switching, new renderers, per-section polling |
-| `macwatch/app.py` | 2 new routes (`/api/system`, `/api/overview`), TTL caching |
-| `macwatch/config.py` | New cache TTLs, health thresholds |
-| `macwatch/utils.py` | `format_duration()`, `format_percent()`, move `_is_private()` |
-| `macwatch/collectors/process.py` | Add `rss` to `collect_ps()` |
-| `macwatch/templates/help.html` | Update for new sections |
+| `src/templates/dashboard.html` | Add tab bar, section panels |
+| `src/static/css/style.css` | Tab bar, gauge bars, health cards, section panels |
+| `src/static/js/dashboard.js` | Section switching, new renderers, per-section polling |
+| `src/app.py` | 2 new routes (`/api/system`, `/api/overview`), TTL caching |
+| `src/config.py` | New cache TTLs, health thresholds |
+| `src/utils.py` | `format_duration()`, `format_percent()`, move `_is_private()` |
+| `src/collectors/process.py` | Add `rss` to `collect_ps()` |
+| `src/templates/help.html` | Update for new sections |
 
 ---
 

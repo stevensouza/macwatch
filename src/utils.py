@@ -18,5 +18,5 @@ def format_bytes(num_bytes):
 
 def port_label(port):
     """Return a human-readable label for common ports."""
-    from macwatch.config import STANDARD_PORTS
+    from src.config import STANDARD_PORTS
     return STANDARD_PORTS.get(port, "")
