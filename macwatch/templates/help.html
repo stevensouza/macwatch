@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MacWatch — Help</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        .help-content { max-width: 900px; margin: 0 auto; padding: 2rem; }
+        .help-content h2 { border-bottom: 1px solid #333; padding-bottom: 0.5rem; margin-top: 2rem; }
+        .help-content pre { background: #1a1a2e; padding: 1rem; border-radius: 8px; overflow-x: auto; font-size: 0.85rem; line-height: 1.4; }
+        .help-content table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+        .help-content th, .help-content td { padding: 0.5rem 1rem; text-align: left; border-bottom: 1px solid #2a2a3e; }
+        .help-content th { color: #8888ff; }
+        .back-link { display: inline-block; margin-bottom: 1rem; color: #8888ff; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>MacWatch</h1>
+        <span class="subtitle">Help</span>
+    </header>
+    <div class="help-content">
+        <a href="/" class="back-link">← Back to Dashboard</a>
+
+        <h2>1. What is MacWatch?</h2>
+        <p>MacWatch shows you what your Mac applications are doing on the network. It answers:</p>
+        <ul>
+            <li>Which apps have open network connections?</li>
+            <li>What servers are they connecting to?</li>
+            <li>Is any of it suspicious?</li>
+        </ul>
+        <p>It runs entirely on your Mac. No data is sent anywhere.</p>
+
+        <h2>2. Dashboard Overview</h2>
+<pre>
+┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
+│   12 Apps       │ │ 84 Connections   │ │  ↓ 47.3 MB in   │ │  ↑ 12.1 MB out  │
+└─────────────────┘ └─────────────────┘ └─────────────────┘ └─────────────────┘
+
+ALERTS
+🔴  mystery-daemon is UNSIGNED and uploading 890 KB
+🟡  3 connections have no reverse DNS
+
+▼ Brave Browser  47 conn │ ↓ 5.2 MB ↑ 1.3 MB │ ✅ Signed  ✅ 0
+  github.com       140.82.114.25   443  TCP  ESTABLISHED  GitHub   US  ✅
+  protonmail.ch    185.70.42.71    443  TCP  ESTABLISHED  Proton   CH  ✅
+</pre>
+
+        <h2>3. Reading Application Cards</h2>
+        <p>Each app card header shows:</p>
+<pre>
+▼ Brave Browser
+  47 connections │ ↓ 5.2 MB ↑ 1.3 MB │ CPU 0.8% MEM 0.4% │ ✅ Signed  ✅ 0
+  ─────────────── ─────────────────── ─────────────────── ──────────── ───
+  Connection       Traffic stats       Resource usage       Code sign   Threat
+  count                                                     status      score
+</pre>
+
+        <h2>4. Threat Scores</h2>
+        <table>
+            <tr><th>Score</th><th>Level</th><th>Color</th><th>Meaning</th></tr>
+            <tr><td>0</td><td>Clean</td><td>Green ✅</td><td>All connections look normal</td></tr>
+            <tr><td>1-2</td><td>Low</td><td>Yellow ⚠️</td><td>Minor concerns</td></tr>
+            <tr><td>3-5</td><td>Medium</td><td>Orange 🟠</td><td>Multiple concerns — investigate</td></tr>
+            <tr><td>6+</td><td>High</td><td>Red 🔴</td><td>Significant risk indicators</td></tr>
+        </table>
+
+        <h3>Flags</h3>
+        <table>
+            <tr><th>Flag</th><th>Points</th><th>Meaning</th></tr>
+            <tr><td>🔴 Unsigned app</td><td>+3</td><td>No valid code signature</td></tr>
+            <tr><td>🔴 HTTP (plaintext)</td><td>+3</td><td>Data sent without encryption</td></tr>
+            <tr><td>🔴 High upload ratio</td><td>+3</td><td>Sending much more than receiving</td></tr>
+            <tr><td>🟡 Unusual port</td><td>+2</td><td>Non-standard port number</td></tr>
+            <tr><td>🟡 No reverse DNS</td><td>+2</td><td>IP has no hostname record</td></tr>
+            <tr><td>🟡 VPS provider</td><td>+2</td><td>IP belongs to hosting company</td></tr>
+            <tr><td>🟡 System daemon</td><td>+2</td><td>macOS daemon connecting externally</td></tr>
+            <tr><td>🔵 High retransmissions</td><td>+1</td><td>Network quality issue</td></tr>
+            <tr><td>🔵 Recv-Q backup</td><td>+1</td><td>App not reading data</td></tr>
+            <tr><td>🔵 Many unique IPs</td><td>+1</td><td>20+ different remote servers</td></tr>
+            <tr><td>🔵 LISTEN on 0.0.0.0</td><td>+1</td><td>Accepting network-wide connections</td></tr>
+        </table>
+
+        <h2>5. Connection Detail</h2>
+        <p>Click any connection row to see full details:</p>
+<pre>
+╔═════════════════════════════════════════════════════════╗
+║  Connection Detail                                     ║
+║                                                        ║
+║  App:       Brave Browser (PID 10053)                  ║
+║  Remote:    140.82.114.25:443                          ║
+║  Protocol:  TCP (HTTPS)                                ║
+║  State:     ESTABLISHED                                ║
+║                                                        ║
+║  DNS:       lb-140-82-114-25-iad.github.com            ║
+║  Org:       GitHub, Inc.                               ║
+║  Country:   US                                         ║
+║                                                        ║
+║  Threat: 0 ✅ — All factors normal                     ║
+╚═════════════════════════════════════════════════════════╝
+</pre>
+
+        <h2>6. Keyboard Shortcuts</h2>
+        <table>
+            <tr><th>Key</th><th>Action</th></tr>
+            <tr><td>r</td><td>Refresh now</td></tr>
+            <tr><td>p</td><td>Pause/resume auto-refresh</td></tr>
+            <tr><td>/</td><td>Focus search box</td></tr>
+            <tr><td>Esc</td><td>Close popover / clear search</td></tr>
+            <tr><td>e</td><td>Expand all groups</td></tr>
+            <tr><td>c</td><td>Collapse all groups</td></tr>
+            <tr><td>?</td><td>Toggle help</td></tr>
+        </table>
+
+        <h2>7. FAQ</h2>
+        <p><strong>Q: Does MacWatch send my data anywhere?</strong><br>
+        No. It runs on localhost:8077 only. No data leaves your machine.</p>
+
+        <p><strong>Q: Why do some IPs show "(no rDNS)"?</strong><br>
+        Not all IPs have reverse DNS records. Check the whois org name instead.</p>
+
+        <p><strong>Q: How accurate is threat scoring?</strong><br>
+        Scores are heuristic indicators, not security verdicts. A red score means "investigate," not "malware."</p>
+
+        <p><strong>Q: Can MacWatch block connections?</strong><br>
+        No. Use macOS Firewall or Little Snitch for blocking.</p>
+
+        <a href="/" class="back-link">← Back to Dashboard</a>
+    </div>
+</body>
+</html>
