@@ -4,7 +4,7 @@ import socket
 import threading
 import time
 
-from macwatch.config import DNS_CACHE_TTL
+from src.config import DNS_CACHE_TTL
 
 _cache = {}
 _lock = threading.Lock()

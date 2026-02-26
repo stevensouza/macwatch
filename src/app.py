@@ -8,11 +8,11 @@ from collections import defaultdict
 
 from flask import Flask, jsonify, render_template, request
 
-from macwatch.collectors import lsof, nettop, process
-from macwatch.enrichment import dns, whois_lookup
-from macwatch.analysis import threat
-from macwatch.utils import format_bytes, port_label
-from macwatch.config import HOST, PORT, STANDARD_PORTS
+from src.collectors import lsof, nettop, process
+from src.enrichment import dns, whois_lookup
+from src.analysis import threat
+from src.utils import format_bytes, port_label
+from src.config import HOST, PORT, STANDARD_PORTS
 
 app = Flask(__name__)
 

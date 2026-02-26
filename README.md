@@ -13,7 +13,7 @@ A macOS system health monitoring dashboard. MacWatch gives you a real-time view 
 
 ```bash
 pip install flask
-python -m macwatch
+./mw.sh
 ```
 
 Then open [http://127.0.0.1:8077](http://127.0.0.1:8077)
@@ -27,7 +27,7 @@ Then open [http://127.0.0.1:8077](http://127.0.0.1:8077)
 ## Architecture
 
 ```
-macwatch/
+src/
 ├── app.py              # Flask routes and data orchestration
 ├── config.py           # Constants and thresholds
 ├── utils.py            # Shared helpers
