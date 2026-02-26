@@ -1,6 +1,8 @@
-"""NetWatch Flask application — main entry point."""
+"""MacWatch Flask application — main entry point."""
 
 import json
+import os
+import signal
 import threading
 from collections import defaultdict
 
@@ -17,6 +19,10 @@ app = Flask(__name__)
 # Track previously seen hosts per app for new-connection alerts
 _seen_hosts = defaultdict(set)
 _seen_hosts_lock = threading.Lock()
+
+# Cache known PIDs for kill validation (avoids re-collecting data)
+_known_pids = set()
+_known_pids_lock = threading.Lock()
 
 
 def _build_dashboard_data():
@@ -86,9 +92,12 @@ def _build_dashboard_data():
             app_data["cpu"] = pi["cpu"]
             app_data["mem"] = pi["mem"]
             app_data["path"] = pi["path"]
+            app_data["lstart"] = pi.get("lstart", "")
+            app_data["etime"] = pi.get("etime", "")
             codesign_info = process.check_codesign(pi["path"])
             app_data["signed"] = codesign_info["signed"]
             app_data["sign_authority"] = codesign_info.get("authority", "")
+            app_data["codesign_info"] = codesign_info
 
     # Score each app
     app_list = []
@@ -102,6 +111,7 @@ def _build_dashboard_data():
         new_connections = _check_new_connections(app_data)
 
         # Build serializable app dict
+        codesign = app_data.get("codesign_info", {})
         app_dict = {
             "app": app_data["app"],
             "pid": app_data["pid"],
@@ -114,8 +124,12 @@ def _build_dashboard_data():
             "cpu": app_data["cpu"],
             "mem": app_data["mem"],
             "path": app_data["path"],
+            "lstart": app_data.get("lstart", ""),
+            "etime": app_data.get("etime", ""),
             "signed": app_data["signed"],
             "sign_authority": app_data["sign_authority"],
+            "team_id": codesign.get("team_id", ""),
+            "identifier": codesign.get("identifier", ""),
             "threat_score": threat_result["score"],
             "threat_level": threat_result["level"],
             "threat_color": threat_result["color"],
@@ -175,6 +189,11 @@ def _build_dashboard_data():
     total_bytes_out = sum(a["bytes_out"] for a in app_list)
     total_connections = sum(a["connection_count"] for a in app_list)
 
+    # Update known PIDs for kill validation
+    with _known_pids_lock:
+        _known_pids.clear()
+        _known_pids.update(a["pid"] for a in app_list)
+
     return {
         "apps": app_list,
         "alerts": all_alerts,
@@ -232,7 +251,8 @@ def _is_private(addr):
 
 @app.route("/")
 def dashboard():
-    return render_template("dashboard.html")
+    initial_data = _build_dashboard_data()
+    return render_template("dashboard.html", initial_data=json.dumps(initial_data))
 
 
 @app.route("/api/connections")
@@ -253,6 +273,21 @@ def api_cache():
         "dns": dns.get_cache_info(),
         "whois": whois_lookup.get_cache_info(),
     })
+
+
+@app.route("/api/kill/<int:pid>", methods=["POST"])
+def api_kill(pid):
+    """Kill a process by PID. Only allows killing PIDs seen in the last refresh."""
+    with _known_pids_lock:
+        if pid not in _known_pids:
+            return jsonify({"error": "PID not found in active connections"}), 404
+    try:
+        os.kill(pid, signal.SIGTERM)
+        return jsonify({"status": "ok", "pid": pid, "signal": "SIGTERM"})
+    except ProcessLookupError:
+        return jsonify({"error": "Process not found"}), 404
+    except PermissionError:
+        return jsonify({"error": "Permission denied — try running MacWatch with sudo"}), 403
 
 
 @app.route("/help")

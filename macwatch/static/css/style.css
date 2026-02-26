@@ -491,6 +491,41 @@ main {
     font-weight: 500;
 }
 
+/* ============ Threat Legend ============ */
+
+.threat-legend {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+}
+
+.threat-legend-label {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 600;
+}
+
+.threat-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    cursor: default;
+}
+
+.legend-swatch {
+    width: 12px;
+    height: 3px;
+    border-radius: 2px;
+}
+
+.legend-swatch.swatch-green { background: transparent; border: 1px solid var(--border); }
+.legend-swatch.swatch-yellow { background: var(--yellow); }
+.legend-swatch.swatch-orange { background: var(--orange); }
+.legend-swatch.swatch-red { background: var(--red); }
+
 /* ============ Alerts Panel ============ */
 
 .alerts-panel {
@@ -732,6 +767,30 @@ main {
 .threat-badge.orange { background: var(--orange-dim); color: var(--orange); }
 .threat-badge.red { background: var(--red-dim); color: var(--red); animation: pulse 2s ease-in-out infinite; }
 
+/* ============ App Info Button ============ */
+
+.app-info-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+    margin-left: 0.5rem;
+}
+
+.app-info-btn:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: var(--accent-dim);
+}
+
 /* ============ Connection Table ============ */
 
 .conn-table-wrapper {
@@ -967,6 +1026,33 @@ main {
     display: flex;
     align-items: center;
     gap: 0.4rem;
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    padding-top: 0.5rem;
+}
+
+.kill-btn {
+    background: var(--red-dim);
+    border: 1px solid var(--red);
+    color: var(--red);
+    padding: 0.45rem 1rem;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    transition: background 0.15s, color 0.15s;
+}
+
+.kill-btn:hover {
+    background: var(--red);
+    color: var(--text-bright);
 }
 
 /* ============ Footer ============ */

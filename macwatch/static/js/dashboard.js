@@ -1,4 +1,4 @@
-/* NetWatch Dashboard */
+/* MacWatch Dashboard */
 
 let refreshInterval = 30000;
 let refreshTimer = null;
@@ -19,11 +19,11 @@ const TOOLTIPS = {
     'Status': 'Threat assessment for this connection based on port, DNS, signing, and traffic pattern analysis.',
 
     // App meta
-    'conn': 'Total number of open network sockets for this application.',
-    'traffic_in': 'Bytes downloaded (received) by this app since the app was launched.',
-    'traffic_out': 'Bytes uploaded (sent) by this app since the app was launched.',
-    'cpu': 'Current CPU usage of this process as a percentage of total CPU.',
-    'mem': 'Current memory (RAM) usage of this process as a percentage of total memory.',
+    'conn': 'Current open network sockets for this application (snapshot at each refresh).',
+    'traffic_in': '↓ Total bytes received (downloaded) by this app — cumulative since the process started, not per-refresh.',
+    'traffic_out': '↑ Total bytes sent (uploaded) by this app — cumulative since the process started, not per-refresh.',
+    'cpu': 'CPU usage — instantaneous snapshot at the time of each refresh, not an average.',
+    'mem': 'Memory (RAM) usage — instantaneous snapshot at the time of each refresh.',
 
     // Threat scores
     'threat_green': 'Threat Score: 0 (Clean). All connections look normal. No suspicious indicators detected.',
@@ -39,7 +39,14 @@ const TOOLTIPS = {
 // --- Initialization ---
 
 document.addEventListener('DOMContentLoaded', () => {
-    refresh();
+    if (window.__INITIAL_DATA__) {
+        currentData = window.__INITIAL_DATA__;
+        renderDashboard(currentData);
+        document.getElementById('last-refresh').textContent =
+            'Updated ' + new Date().toLocaleTimeString();
+    } else {
+        refresh();
+    }
     startAutoRefresh();
     setupKeyboardShortcuts();
     setupFilterListeners();
@@ -190,6 +197,9 @@ function renderApps(apps) {
                 <span class="threat-badge ${app.threat_color}" data-tooltip="${escAttr(threatTooltip)}">
                     ${app.threat_score}
                 </span>
+                <button class="app-info-btn" onclick="event.stopPropagation(); showProcessDetail(this)" data-app='${escAttr(JSON.stringify(app))}' data-tooltip="View process details">
+                    <svg viewBox="0 0 16 16" fill="none" width="14" height="14"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.2"/><path d="M8 7v4M8 5.5v.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+                </button>
             </div>
             <div class="conn-table-wrapper ${isExpanded ? 'expanded' : ''}">
                 ${renderConnTable(conns, app)}
@@ -330,6 +340,117 @@ async function loadFullWhois(ip) {
 
 function closeModal() {
     document.getElementById('modal-overlay').classList.remove('visible');
+}
+
+// --- Process Detail Modal ---
+
+function showProcessDetail(btn) {
+    const app = JSON.parse(btn.getAttribute('data-app'));
+    const modal = document.getElementById('modal-overlay');
+    const content = document.getElementById('modal-content');
+
+    const signClass = app.signed ? 'signed' : 'unsigned';
+    const signLabel = app.signed ? 'Valid' : 'Not signed';
+
+    const flagsHtml = (app.threat_flags && app.threat_flags.length > 0)
+        ? app.threat_flags.map(f => `<div class="modal-flag">
+            <span class="modal-flag-weight ${f.severity}">+${f.weight}</span>
+            <span>${esc(f.description)}</span>
+        </div>`).join('')
+        : '<div class="modal-all-clear"><span class="conn-flag flag-green"></span> No threat flags</div>';
+
+    content.innerHTML = `
+        <h3>Process Detail: ${esc(app.app)}</h3>
+
+        <div class="modal-section">
+            <h4>Process</h4>
+            <div class="detail-grid">
+                <span class="detail-label">PID</span>
+                <span class="detail-value">${app.pid}</span>
+                <span class="detail-label">Binary Path</span>
+                <span class="detail-value" style="word-break:break-all">${esc(app.path || 'Unknown')}</span>
+                <span class="detail-label">Started</span>
+                <span class="detail-value">${esc(app.lstart || 'Unknown')}</span>
+                <span class="detail-label">Uptime</span>
+                <span class="detail-value">${esc(app.etime || 'Unknown')}</span>
+                <span class="detail-label">CPU</span>
+                <span class="detail-value">${app.cpu.toFixed(1)}%</span>
+                <span class="detail-label">Memory</span>
+                <span class="detail-value">${app.mem.toFixed(1)}%</span>
+            </div>
+        </div>
+
+        <div class="modal-section">
+            <h4>Code Signing</h4>
+            <div class="detail-grid">
+                <span class="detail-label">Status</span>
+                <span class="detail-value"><span class="sign-badge ${signClass}">${signLabel}</span></span>
+                <span class="detail-label">Authority</span>
+                <span class="detail-value">${esc(app.sign_authority || '-')}</span>
+                <span class="detail-label">Team ID</span>
+                <span class="detail-value">${esc(app.team_id || '-')}</span>
+                <span class="detail-label">Identifier</span>
+                <span class="detail-value">${esc(app.identifier || '-')}</span>
+            </div>
+        </div>
+
+        <div class="modal-section">
+            <h4>Network</h4>
+            <div class="detail-grid">
+                <span class="detail-label">Connections</span>
+                <span class="detail-value">${app.connection_count}</span>
+                <span class="detail-label">Traffic In</span>
+                <span class="detail-value">${app.bytes_in_fmt}</span>
+                <span class="detail-label">Traffic Out</span>
+                <span class="detail-value">${app.bytes_out_fmt}</span>
+            </div>
+        </div>
+
+        <div class="modal-section">
+            <h4>Threat Assessment</h4>
+            <div class="detail-grid">
+                <span class="detail-label">Score</span>
+                <span class="detail-value"><span class="threat-badge ${app.threat_color}">${app.threat_score}</span></span>
+                <span class="detail-label">Level</span>
+                <span class="detail-value">${esc(app.threat_level)}</span>
+            </div>
+            ${flagsHtml}
+        </div>
+
+        <div class="modal-section modal-actions">
+            <button class="kill-btn" onclick="confirmKill(${app.pid}, '${escAttr(app.app)}')">
+                <svg viewBox="0 0 16 16" fill="none" width="14" height="14"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                Terminate Process
+            </button>
+        </div>
+    `;
+
+    modal.classList.add('visible');
+}
+
+function confirmKill(pid, appName) {
+    const confirmed = confirm(
+        `Are you sure you want to terminate "${appName}" (PID ${pid})?\n\n` +
+        `This sends SIGTERM which allows the process to clean up and exit gracefully.`
+    );
+    if (confirmed) {
+        killProcess(pid);
+    }
+}
+
+async function killProcess(pid) {
+    try {
+        const resp = await fetch(`/api/kill/${pid}`, { method: 'POST' });
+        const result = await resp.json();
+        if (resp.ok) {
+            closeModal();
+            setTimeout(refresh, 1000);
+        } else {
+            alert(`Failed to terminate process: ${result.error}`);
+        }
+    } catch (err) {
+        alert(`Error: ${err.message}`);
+    }
 }
 
 // --- App Expand/Collapse ---

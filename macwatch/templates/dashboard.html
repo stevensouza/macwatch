@@ -80,7 +80,7 @@
                     <div class="summary-label">Connections</div>
                 </div>
             </div>
-            <div class="summary-card card--in" data-tooltip="Traffic In: Total bytes received across all listed apps, each counted from when that app's process started.">
+            <div class="summary-card card--in" data-tooltip="↓ Traffic In: Total bytes received (downloaded) across all listed apps. Each app's count is cumulative since that process started, not per-refresh.">
                 <div class="summary-icon">
                     <svg viewBox="0 0 24 24" fill="none"><path d="M12 3v14M5 13l7 7 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 </div>
@@ -89,7 +89,7 @@
                     <div class="summary-label">Traffic In</div>
                 </div>
             </div>
-            <div class="summary-card card--out" data-tooltip="Traffic Out: Total bytes sent across all listed apps, each counted from when that app's process started.">
+            <div class="summary-card card--out" data-tooltip="↑ Traffic Out: Total bytes sent (uploaded) across all listed apps. Each app's count is cumulative since that process started, not per-refresh.">
                 <div class="summary-icon">
                     <svg viewBox="0 0 24 24" fill="none"><path d="M12 21V7M5 11l7-7 7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 </div>
@@ -100,6 +100,15 @@
             </div>
         </div>
 
+        <!-- Threat Legend -->
+        <div class="threat-legend">
+            <span class="threat-legend-label">Threat:</span>
+            <span class="threat-legend-item" data-tooltip="Threat score 0 — no suspicious indicators detected"><span class="legend-swatch swatch-green"></span>Clean</span>
+            <span class="threat-legend-item" data-tooltip="Threat score 1–2 — minor concerns, usually benign"><span class="legend-swatch swatch-yellow"></span>Low</span>
+            <span class="threat-legend-item" data-tooltip="Threat score 3–5 — multiple concerns, worth investigating"><span class="legend-swatch swatch-orange"></span>Medium</span>
+            <span class="threat-legend-item" data-tooltip="Threat score 6+ — significant risk indicators, investigate immediately"><span class="legend-swatch swatch-red"></span>High</span>
+        </div>
+
         <!-- Alerts Panel -->
         <div class="alerts-panel" id="alerts-panel">
             <div class="alerts-header" onclick="toggleAlerts()">
@@ -108,11 +117,11 @@
                     <span>Alerts</span>
                     <span class="alert-counts" id="alert-counts"></span>
                 </div>
-                <span class="toggle-icon" id="alerts-toggle">
+                <span class="toggle-icon collapsed" id="alerts-toggle">
                     <svg viewBox="0 0 20 20" fill="none" width="14" height="14"><path d="M5 8l5 5 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 </span>
             </div>
-            <div class="alerts-body" id="alerts-body"></div>
+            <div class="alerts-body collapsed" id="alerts-body"></div>
         </div>
 
         <!-- Application Cards -->
@@ -160,6 +169,7 @@
         </div>
     </div>
 
+    <script>window.__INITIAL_DATA__ = {{ initial_data | safe }};</script>
     <script src="/static/js/dashboard.js"></script>
 </body>
 </html>

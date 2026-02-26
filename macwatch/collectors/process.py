@@ -17,12 +17,14 @@ def collect_ps():
             "cpu": float,
             "mem": float,
             "path": str,
+            "lstart": str,   # e.g. "Mon Feb 16 15:44:11 2026"
+            "etime": str,    # e.g. "09-20:52:44"
         }
     }
     """
     try:
         result = subprocess.run(
-            ["ps", "-eo", "pid,pcpu,pmem,comm"],
+            ["ps", "-eo", "pid,pcpu,pmem,lstart,etime,comm"],
             capture_output=True, text=True, timeout=5
         )
         lines = result.stdout.strip().split("\n")
@@ -31,15 +33,23 @@ def collect_ps():
 
     info = {}
     for line in lines[1:]:  # skip header
-        parts = line.split(None, 3)
-        if len(parts) < 4:
+        # lstart is 5 tokens (e.g. "Mon Feb 16 15:44:11 2026"), then etime, then comm
+        parts = line.split(None, 8)
+        if len(parts) < 9:
             continue
         try:
             pid = int(parts[0])
             cpu = float(parts[1])
             mem = float(parts[2])
-            path = parts[3].strip()
-            info[pid] = {"cpu": cpu, "mem": mem, "path": path}
+            lstart = f"{parts[3]} {parts[4]} {parts[5]} {parts[6]} {parts[7]}"
+            # parts[8] is "etime comm..." — etime never contains spaces
+            rest = parts[8].split(None, 1)
+            etime = rest[0] if rest else ""
+            path = rest[1].strip() if len(rest) > 1 else ""
+            info[pid] = {
+                "cpu": cpu, "mem": mem, "path": path,
+                "lstart": lstart, "etime": etime,
+            }
         except (ValueError, IndexError):
             continue
 
