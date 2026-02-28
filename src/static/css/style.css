@@ -428,7 +428,7 @@ main {
 
 .summary-bar {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, 1fr);
     gap: 0.75rem;
     margin-bottom: 1.25rem;
     position: relative;
@@ -452,6 +452,13 @@ main {
 .summary-card:nth-child(2) { animation-delay: 0.1s; }
 .summary-card:nth-child(3) { animation-delay: 0.15s; }
 .summary-card:nth-child(4) { animation-delay: 0.2s; }
+.summary-card:nth-child(5) { animation-delay: 0.25s; }
+
+.summary-refresh-time {
+    font-size: 1.1rem;
+    font-weight: 600;
+    letter-spacing: 0;
+}
 
 .summary-card:hover {
     border-color: var(--border);
@@ -665,6 +672,10 @@ main {
     animation: fadeInUp 0.35s ease both;
 }
 
+.app-card.no-animate {
+    animation: none;
+}
+
 .app-card:hover {
     border-color: var(--border);
 }
@@ -711,6 +722,18 @@ main {
     font-size: 0.95rem;
     color: var(--text-bright);
     min-width: 130px;
+}
+
+.app-command-hint {
+    display: block;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    font-weight: 400;
+    font-family: var(--font-mono);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 400px;
 }
 
 .app-meta {
@@ -854,6 +877,7 @@ main {
 
 .conn-host { color: var(--accent); }
 .conn-no-rdns { color: var(--text-muted); font-style: italic; }
+.conn-listen-local { color: var(--text-secondary); }
 
 .conn-port-label {
     color: var(--text-muted);
