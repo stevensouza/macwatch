@@ -398,6 +398,11 @@ function showProcessDetail(btn) {
             </div>
         </div>
 
+        <div class="modal-section" id="process-deep-detail">
+            <h4>System Detail</h4>
+            <div style="color: var(--text-muted); font-size: 0.82rem;">Loading...</div>
+        </div>
+
         <div class="modal-section">
             <h4>Code Signing</h4>
             <div class="detail-grid">
@@ -444,6 +449,78 @@ function showProcessDetail(btn) {
     `;
 
     modal.classList.add('visible');
+    loadProcessDeepDetail(app.pid);
+}
+
+async function loadProcessDeepDetail(pid) {
+    const container = document.getElementById('process-deep-detail');
+    if (!container) return;
+
+    try {
+        const resp = await fetch(`/api/process/${pid}`);
+        if (!resp.ok) {
+            container.innerHTML = '<h4>System Detail</h4><div style="color: var(--text-muted); font-size: 0.82rem;">Unable to load details</div>';
+            return;
+        }
+        const d = await resp.json();
+
+        const parentChainHtml = d.parent_chain && d.parent_chain.length > 0
+            ? d.parent_chain.map(p =>
+                `<span style="color:var(--text-muted);font-size:0.76rem">${esc(p.name)} (${p.pid})</span>`
+            ).join(' → ')
+            : '-';
+
+        const openFilesHtml = d.open_files && d.open_files.length > 0
+            ? `<a href="#" class="modal-link" onclick="toggleOpenFiles(event)">
+                Show ${d.open_files_count} open file${d.open_files_count !== 1 ? 's' : ''}
+                <svg viewBox="0 0 12 12" fill="none" width="12" height="12"><path d="M4 8l4-4M4 4h4v4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </a>
+              <div id="open-files-list" style="display:none;margin-top:0.4rem;font-size:0.72rem;color:var(--text-muted);max-height:200px;overflow-y:auto;word-break:break-all">
+                ${d.open_files.map(f => `<div style="padding:1px 0">${esc(f)}</div>`).join('')}
+              </div>`
+            : '';
+
+        container.innerHTML = `
+            <h4>System Detail</h4>
+            <div class="detail-grid">
+                <span class="detail-label">User</span>
+                <span class="detail-value">${esc(d.user || '-')}</span>
+                <span class="detail-label">Working Dir</span>
+                <span class="detail-value" style="word-break:break-all;font-size:0.76rem">${esc(d.cwd || '-')}</span>
+                <span class="detail-label">Parent</span>
+                <span class="detail-value" style="word-break:break-all;font-size:0.76rem">${esc(d.parent_command || '-')}</span>
+                <span class="detail-label">Parent Chain</span>
+                <span class="detail-value">${parentChainHtml}</span>
+                <span class="detail-label">State</span>
+                <span class="detail-value">${esc(d.state || '-')}</span>
+                <span class="detail-label">Nice / Priority</span>
+                <span class="detail-value">${d.nice != null ? d.nice : '-'} / ${d.priority != null ? d.priority : '-'}</span>
+                <span class="detail-label">RSS (Physical)</span>
+                <span class="detail-value">${esc(d.rss_fmt || '-')}</span>
+                <span class="detail-label">VSZ (Virtual)</span>
+                <span class="detail-value">${esc(d.vsz_fmt || '-')}</span>
+                <span class="detail-label">Threads</span>
+                <span class="detail-value">${d.thread_count || '-'}</span>
+                <span class="detail-label">Open Files</span>
+                <span class="detail-value">${d.open_files_count || 0}</span>
+                <span class="detail-label">Loaded Libs</span>
+                <span class="detail-value">${d.loaded_libs_count || 0}</span>
+                <span class="detail-label">Process Group</span>
+                <span class="detail-value">${d.pgid != null ? d.pgid : '-'}</span>
+            </div>
+            ${openFilesHtml}
+        `;
+    } catch (err) {
+        container.innerHTML = '<h4>System Detail</h4><div style="color: var(--red); font-size: 0.82rem;">Failed to load details</div>';
+    }
+}
+
+function toggleOpenFiles(event) {
+    event.preventDefault();
+    const list = document.getElementById('open-files-list');
+    if (list) {
+        list.style.display = list.style.display === 'none' ? 'block' : 'none';
+    }
 }
 
 function confirmKill(pid, appName) {
