@@ -5,6 +5,7 @@ let refreshTimer = null;
 let paused = false;
 let expandedApps = new Set();
 let currentData = null;
+let initialRenderDone = false;
 
 // --- Tooltip definitions ---
 const TOOLTIPS = {
@@ -42,8 +43,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (window.__INITIAL_DATA__) {
         currentData = window.__INITIAL_DATA__;
         renderDashboard(currentData);
-        document.getElementById('last-refresh').textContent =
-            'Updated ' + new Date().toLocaleTimeString();
+        const initTime = new Date().toLocaleTimeString();
+        document.getElementById('last-refresh').textContent = 'Updated ' + initTime;
+        document.getElementById('last-refresh-time').textContent = initTime;
     } else {
         refresh();
     }
@@ -59,8 +61,9 @@ async function refresh() {
         const resp = await fetch('/api/connections');
         currentData = await resp.json();
         renderDashboard(currentData);
-        document.getElementById('last-refresh').textContent =
-            'Updated ' + new Date().toLocaleTimeString();
+        const refreshTime = new Date().toLocaleTimeString();
+        document.getElementById('last-refresh').textContent = 'Updated ' + refreshTime;
+        document.getElementById('last-refresh-time').textContent = refreshTime;
     } catch (err) {
         console.error('Refresh failed:', err);
     }
@@ -166,12 +169,17 @@ function renderApps(apps) {
 
         const threatTooltip = TOOLTIPS['threat_' + app.threat_color] || '';
 
-        return `<div class="app-card threat-${app.threat_color}" style="animation-delay: ${Math.min(i * 0.03, 0.3)}s">
+        const animClass = initialRenderDone ? ' no-animate' : '';
+        const animStyle = initialRenderDone ? '' : `animation-delay: ${Math.min(i * 0.03, 0.3)}s`;
+        const cmdHint = app.command && app.command !== app.path
+            ? `<span class="app-command-hint">${esc(truncate(app.command, 80))}</span>` : '';
+
+        return `<div class="app-card threat-${app.threat_color}${animClass}" style="${animStyle}">
             <div class="app-header" onclick="toggleApp('${escAttr(appKey)}')">
                 <span class="app-toggle ${isExpanded ? 'expanded' : ''}">
                     <svg viewBox="0 0 20 20" fill="none"><path d="M7 4l6 6-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 </span>
-                <span class="app-name">${esc(app.app)}</span>
+                <span class="app-name">${esc(app.app)}${cmdHint}</span>
                 <div class="app-meta">
                     <span class="app-meta-item" data-tooltip="${TOOLTIPS.conn}">
                         ${app.connection_count} conn
@@ -206,6 +214,8 @@ function renderApps(apps) {
             </div>
         </div>`;
     }).join('');
+
+    if (!initialRenderDone) initialRenderDone = true;
 }
 
 function renderConnTable(conns, app) {
@@ -214,20 +224,26 @@ function renderConnTable(conns, app) {
     }
 
     const rows = conns.map(c => {
-        const hostClass = c.remote_host === '(no rDNS)' ? 'conn-no-rdns' : 'conn-host';
-        const portLabel = c.port_label ? `<span class="conn-port-label">${esc(c.port_label)}</span>` : '';
+        const isListen = (c.state || '').toUpperCase() === 'LISTEN';
+        const hostClass = isListen ? 'conn-listen-local' : (c.remote_host === '(no rDNS)' ? 'conn-no-rdns' : 'conn-host');
+        const displayHost = isListen ? (c.local_addr || '*') : (c.remote_host || '-');
+        const displayAddr = isListen ? (c.local_addr || '*') : (c.remote_addr || '-');
+        const displayPort = isListen ? (c.local_port || '-') : (c.remote_port || '-');
+        const portLabel = isListen
+            ? (c.local_port ? `<span class="conn-port-label">${esc(portLabelForLocal(c.local_port))}</span>` : '')
+            : (c.port_label ? `<span class="conn-port-label">${esc(c.port_label)}</span>` : '');
         const stateClass = (c.state || '').toLowerCase().replace('_', '-');
         const flagClass = connectionFlagClass(c.flags);
         const flagTooltip = connectionFlagTooltip(c.flags);
 
         return `<tr onclick="showConnectionDetail(${JSON.stringify(esc(JSON.stringify(c))).slice(1, -1)}, '${escAttr(app.app)}', ${app.pid})">
-            <td class="${hostClass}">${esc(c.remote_host || '-')}</td>
-            <td>${esc(c.remote_addr || '-')}</td>
-            <td>${c.remote_port || '-'}${portLabel}</td>
+            <td class="${hostClass}">${esc(displayHost)}</td>
+            <td>${esc(displayAddr)}</td>
+            <td>${displayPort}${portLabel}</td>
             <td>${esc(c.protocol)}</td>
             <td><span class="conn-state ${stateClass}">${esc(c.state || '-')}</span></td>
-            <td>${esc(c.whois_org || '-')}</td>
-            <td>${esc(c.whois_country || '-')}</td>
+            <td>${isListen ? '-' : esc(c.whois_org || '-')}</td>
+            <td>${isListen ? '-' : esc(c.whois_country || '-')}</td>
             <td><span class="conn-flag ${flagClass}" data-tooltip="${escAttr(flagTooltip)}"></span></td>
         </tr>`;
     }).join('');
@@ -369,6 +385,8 @@ function showProcessDetail(btn) {
                 <span class="detail-value">${app.pid}</span>
                 <span class="detail-label">Binary Path</span>
                 <span class="detail-value" style="word-break:break-all">${esc(app.path || 'Unknown')}</span>
+                <span class="detail-label">Command</span>
+                <span class="detail-value" style="word-break:break-all;font-size:0.76rem">${esc(app.command || app.path || 'Unknown')}</span>
                 <span class="detail-label">Started</span>
                 <span class="detail-value">${esc(app.lstart || 'Unknown')}</span>
                 <span class="detail-label">Uptime</span>
@@ -593,4 +611,16 @@ function esc(str) {
 function escAttr(str) {
     if (str === null || str === undefined) return '';
     return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function truncate(str, len) {
+    if (!str || str.length <= len) return str;
+    return str.substring(0, len) + '\u2026';
+}
+
+function portLabelForLocal(port) {
+    const labels = {80:'HTTP', 443:'HTTPS', 8080:'HTTP-Alt', 8443:'HTTPS-Alt',
+                    22:'SSH', 53:'DNS', 5353:'mDNS', 3000:'Dev', 5000:'Dev',
+                    8077:'MacWatch'};
+    return labels[port] || '';
 }

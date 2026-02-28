@@ -48,10 +48,29 @@ def collect_ps():
             path = rest[1].strip() if len(rest) > 1 else ""
             info[pid] = {
                 "cpu": cpu, "mem": mem, "path": path,
+                "command": "",  # populated below from ps args
                 "lstart": lstart, "etime": etime,
             }
         except (ValueError, IndexError):
             continue
+
+    # Collect full command lines (with arguments) via a separate ps call
+    try:
+        args_result = subprocess.run(
+            ["ps", "-eo", "pid,args"],
+            capture_output=True, text=True, timeout=5
+        )
+        for line in args_result.stdout.strip().split("\n")[1:]:
+            parts = line.strip().split(None, 1)
+            if len(parts) >= 2:
+                try:
+                    pid = int(parts[0])
+                    if pid in info:
+                        info[pid]["command"] = parts[1]
+                except (ValueError, IndexError):
+                    continue
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        pass
 
     return info
 

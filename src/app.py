@@ -51,6 +51,11 @@ def _build_dashboard_data():
     })
 
     for conn in connections:
+        # Skip connections with no remote endpoint and no state (e.g., UDP
+        # sockets with only a local address) — they add no useful info.
+        if not conn.get("remote_addr") and not conn.get("remote_port") and not conn.get("state"):
+            continue
+
         pid = conn["pid"]
         app_key = f"{conn['app']}:{pid}"
         app_data = apps[app_key]
@@ -92,6 +97,7 @@ def _build_dashboard_data():
             app_data["cpu"] = pi["cpu"]
             app_data["mem"] = pi["mem"]
             app_data["path"] = pi["path"]
+            app_data["command"] = pi.get("command", "")
             app_data["lstart"] = pi.get("lstart", "")
             app_data["etime"] = pi.get("etime", "")
             codesign_info = process.check_codesign(pi["path"])
@@ -124,6 +130,7 @@ def _build_dashboard_data():
             "cpu": app_data["cpu"],
             "mem": app_data["mem"],
             "path": app_data["path"],
+            "command": app_data.get("command", ""),
             "lstart": app_data.get("lstart", ""),
             "etime": app_data.get("etime", ""),
             "signed": app_data["signed"],
