@@ -282,6 +282,16 @@ def api_cache():
     })
 
 
+@app.route("/api/process/<int:pid>")
+def api_process_detail(pid):
+    """Return comprehensive details for a single process."""
+    with _known_pids_lock:
+        if pid not in _known_pids:
+            return jsonify({"error": "PID not found in active connections"}), 404
+    detail = process.collect_process_detail(pid)
+    return jsonify(detail)
+
+
 @app.route("/api/kill/<int:pid>", methods=["POST"])
 def api_kill(pid):
     """Kill a process by PID. Only allows killing PIDs seen in the last refresh."""
