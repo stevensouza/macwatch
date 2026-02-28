@@ -52,7 +52,7 @@
                     <option value="hidegreen">Hide Green</option>
                 </select>
                 <label class="toggle-switch" data-tooltip="Show connections to localhost (127.0.0.1) — your own machine's internal traffic, not internet connections">
-                    <input type="checkbox" id="show-localhost" />
+                    <input type="checkbox" id="show-localhost" checked />
                     <span class="toggle-track"><span class="toggle-thumb"></span></span>
                     <span class="toggle-label">Localhost</span>
                 </label>
@@ -137,11 +137,13 @@
         <div class="footer-controls">
             <label class="footer-label" data-tooltip="How often the dashboard fetches fresh connection data. Slower = less screen redraw.">Refresh:
                 <select id="refresh-interval">
-                    <option value="2000">2s</option>
-                    <option value="5000">5s</option>
-                    <option value="10000">10s</option>
-                    <option value="30000" selected>30s</option>
-                    <option value="60000">60s</option>
+                    <option value="30000">30s</option>
+                    <option value="60000">1m</option>
+                    <option value="120000" selected>2m</option>
+                    <option value="180000">3m</option>
+                    <option value="240000">4m</option>
+                    <option value="300000">5m</option>
+                    <option value="600000">10m</option>
                     <option value="0">Manual</option>
                 </select>
             </label>

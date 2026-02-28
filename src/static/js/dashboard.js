@@ -1,6 +1,6 @@
 /* MacWatch Dashboard */
 
-let refreshInterval = 30000;
+let refreshInterval = 120000;
 let refreshTimer = null;
 let paused = false;
 let expandedApps = new Set();

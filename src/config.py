@@ -5,7 +5,7 @@ HOST = "127.0.0.1"
 PORT = 8077
 
 # Refresh
-DEFAULT_REFRESH_INTERVAL = 5  # seconds
+DEFAULT_REFRESH_INTERVAL = 120  # seconds
 
 # Standard ports (connections to these don't trigger "unusual port" flag)
 STANDARD_PORTS = {
