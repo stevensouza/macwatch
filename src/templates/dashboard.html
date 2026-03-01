@@ -32,14 +32,21 @@
             </div>
         </div>
         <nav class="header-tabs">
-            <a href="/" class="header-tab active">
+            <a href="/" class="header-tab active" data-tooltip="Real-time network connections, traffic stats, and threat scores for all apps">
                 <svg viewBox="0 0 20 20" fill="none"><rect x="3" y="3" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="3" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="3" y="11" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="11" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/></svg>
                 Dashboard
             </a>
-            <a href="/analysis" class="header-tab" id="analysis-tab">
+            <a href="/alerts" class="header-tab" id="alerts-tab" data-tooltip="Security alerts grouped by severity with educational explanations">
                 <svg viewBox="0 0 20 20" fill="none"><path d="M10 2L3 6v5c0 5 3 9.5 7 11 4-1.5 7-6 7-11V6l-7-4z" stroke="currentColor" stroke-width="1.5" fill="none"/><path d="M7 10l2 2 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                Analysis
+                Alerts
                 <span class="tab-alert-badge" id="tab-alert-badge" style="display:none"></span>
+            </a>
+            <a href="/analysis" class="header-tab" data-tooltip="On-demand AI-powered assessment of security, performance, and system health">
+                <svg viewBox="0 0 20 20" fill="none">
+                    <path d="M10 2l1.5 3.5L15 7l-3.5 1.5L10 12l-1.5-3.5L5 7l3.5-1.5L10 2z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
+                    <path d="M15 12l1 2 2 1-2 1-1 2-1-2-2-1 2-1 1-2z" stroke="currentColor" stroke-width="1" stroke-linejoin="round" opacity="0.5"/>
+                </svg>
+                AI Analysis
             </a>
         </nav>
         <div class="header-controls">
