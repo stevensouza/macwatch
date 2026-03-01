@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MacWatch — Analysis</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <!-- Ambient background -->
+    <div class="bg-grid"></div>
+    <div class="bg-glow bg-glow--1"></div>
+    <div class="bg-glow bg-glow--2"></div>
+
+    <header>
+        <div class="header-brand">
+            <div class="brand-icon">
+                <svg viewBox="0 0 32 32" fill="none">
+                    <circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="1" opacity="0.3"/>
+                    <circle cx="16" cy="16" r="8" stroke="currentColor" stroke-width="1.5" opacity="0.5"/>
+                    <circle cx="16" cy="16" r="3" fill="currentColor" class="pulse-dot"/>
+                    <path d="M2 16 H8 L11 10 L14 22 L17 8 L20 20 L23 14 H30" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="pulse-line"/>
+                </svg>
+            </div>
+            <div>
+                <h1>MacWatch</h1>
+                <span class="subtitle">System Health Dashboard</span>
+            </div>
+        </div>
+        <nav class="header-tabs">
+            <a href="/" class="header-tab">
+                <svg viewBox="0 0 20 20" fill="none"><rect x="3" y="3" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="3" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="3" y="11" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="11" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/></svg>
+                Dashboard
+            </a>
+            <a href="/analysis" class="header-tab active" id="analysis-tab">
+                <svg viewBox="0 0 20 20" fill="none"><path d="M10 2L3 6v5c0 5 3 9.5 7 11 4-1.5 7-6 7-11V6l-7-4z" stroke="currentColor" stroke-width="1.5" fill="none"/><path d="M7 10l2 2 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Analysis
+                <span class="tab-alert-badge" id="tab-alert-badge" style="display:none"></span>
+            </a>
+        </nav>
+    </header>
+
+    <main>
+        <!-- Loading state -->
+        <div id="loading-state" class="analysis-loading">
+            <div class="loading-spinner"></div>
+            <span>Loading alert data...</span>
+        </div>
+
+        <!-- Alert Analysis Section -->
+        <div id="alert-analysis" class="analysis-section" style="display:none">
+            <div class="analysis-section-header">
+                <h2>Alert Analysis</h2>
+                <span class="analysis-section-subtitle" id="alert-summary-text"></span>
+            </div>
+
+            <!-- Severity groups -->
+            <div id="alerts-red" class="alert-group" style="display:none">
+                <div class="alert-group-header alert-group-red" onclick="toggleAlertGroup('red')">
+                    <span class="alert-severity-dot sev-red"></span>
+                    <span class="alert-group-title">Critical</span>
+                    <span class="alert-group-count" id="alert-count-red"></span>
+                    <span class="toggle-icon" id="toggle-red">
+                        <svg viewBox="0 0 20 20" fill="none" width="14" height="14"><path d="M5 8l5 5 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </span>
+                </div>
+                <div class="alert-group-body" id="alert-body-red"></div>
+            </div>
+
+            <div id="alerts-yellow" class="alert-group" style="display:none">
+                <div class="alert-group-header alert-group-yellow" onclick="toggleAlertGroup('yellow')">
+                    <span class="alert-severity-dot sev-yellow"></span>
+                    <span class="alert-group-title">Warning</span>
+                    <span class="alert-group-count" id="alert-count-yellow"></span>
+                    <span class="toggle-icon" id="toggle-yellow">
+                        <svg viewBox="0 0 20 20" fill="none" width="14" height="14"><path d="M5 8l5 5 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </span>
+                </div>
+                <div class="alert-group-body" id="alert-body-yellow"></div>
+            </div>
+
+            <div id="alerts-blue" class="alert-group" style="display:none">
+                <div class="alert-group-header alert-group-blue" onclick="toggleAlertGroup('blue')">
+                    <span class="alert-severity-dot sev-blue"></span>
+                    <span class="alert-group-title">Informational</span>
+                    <span class="alert-group-count" id="alert-count-blue"></span>
+                    <span class="toggle-icon" id="toggle-blue">
+                        <svg viewBox="0 0 20 20" fill="none" width="14" height="14"><path d="M5 8l5 5 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </span>
+                </div>
+                <div class="alert-group-body" id="alert-body-blue"></div>
+            </div>
+
+            <div id="alerts-info" class="alert-group" style="display:none">
+                <div class="alert-group-header alert-group-info" onclick="toggleAlertGroup('info')">
+                    <span class="alert-severity-dot sev-info"></span>
+                    <span class="alert-group-title">New Connections</span>
+                    <span class="alert-group-count" id="alert-count-info"></span>
+                    <span class="toggle-icon" id="toggle-info">
+                        <svg viewBox="0 0 20 20" fill="none" width="14" height="14"><path d="M5 8l5 5 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </span>
+                </div>
+                <div class="alert-group-body" id="alert-body-info"></div>
+            </div>
+
+            <div id="alerts-none" class="alert-all-clear" style="display:none">
+                <span class="conn-flag flag-green"></span> All connections look normal — no alerts detected
+            </div>
+        </div>
+
+        <!-- AI Analysis Section -->
+        <div id="ai-analysis" class="analysis-section" style="display:none">
+            <div class="analysis-section-header">
+                <h2>AI Analysis</h2>
+                <span class="analysis-section-subtitle">AI-powered assessment of security, performance, and system health</span>
+            </div>
+
+            <div class="ai-controls">
+                <div class="ai-provider-select">
+                    <label>Provider:</label>
+                    <select id="ai-provider"></select>
+                </div>
+                <button id="ai-analyze-btn" class="ai-analyze-btn" onclick="runAIAnalysis()">
+                    <svg viewBox="0 0 20 20" fill="none" width="16" height="16">
+                        <path d="M10 2l1.5 3.5L15 7l-3.5 1.5L10 12l-1.5-3.5L5 7l3.5-1.5L10 2z"
+                              stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
+                        <path d="M15 12l1 2 2 1-2 1-1 2-1-2-2-1 2-1 1-2z"
+                              stroke="currentColor" stroke-width="1" stroke-linejoin="round" opacity="0.5"/>
+                    </svg>
+                    Analyze with AI
+                </button>
+                <span class="ai-privacy-note" id="ai-privacy-note">Sends current MacWatch data to the selected AI provider for analysis</span>
+            </div>
+
+            <!-- AI not configured -->
+            <div id="ai-not-configured" class="ai-message ai-message-warning" style="display:none"></div>
+
+            <!-- AI loading -->
+            <div id="ai-loading" class="ai-loading" style="display:none">
+                <div class="loading-spinner"></div>
+                <span>AI is analyzing your system data... this may take 10-30 seconds</span>
+            </div>
+
+            <!-- AI error -->
+            <div id="ai-error" class="ai-message ai-message-error" style="display:none"></div>
+
+            <!-- AI result -->
+            <div id="ai-result" class="ai-result-panel" style="display:none">
+                <div class="ai-verdict" id="ai-verdict"></div>
+                <div class="ai-response-body" id="ai-response-body"></div>
+                <div class="ai-meta" id="ai-meta"></div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="footer-left">
+            <span id="analysis-status" style="color: var(--text-muted)"></span>
+        </div>
+        <div class="footer-controls">
+            <a href="/help" data-tooltip="View documentation, keyboard shortcuts, and FAQ">
+                <svg viewBox="0 0 20 20" fill="none" width="14" height="14"><circle cx="10" cy="10" r="7.5" stroke="currentColor" stroke-width="1.5"/><path d="M7.5 7.5a2.5 2.5 0 014.5 1.5c0 1.5-2 2-2 3.5M10 15.5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                Help
+            </a>
+        </div>
+    </footer>
+
+    <script src="/static/js/analysis.js"></script>
+</body>
+</html>
