@@ -216,7 +216,9 @@ Analyze this data from three perspectives and provide:
 
 2. **SUMMARY**: A 2-3 sentence overall assessment of the system's health.
 
-3. **FINDINGS**: List the most important observations grouped by category. For each finding:
+3. **RECOMMENDATIONS**: Actionable suggestions for security, performance, and general system hygiene.
+
+4. **FINDINGS**: List the most important observations grouped by category. For each finding:
    - Category: SECURITY, PERFORMANCE, or HEALTH
    - Severity: HIGH, MEDIUM, or LOW
    - What you found
@@ -228,11 +230,9 @@ Analyze this data from three perspectives and provide:
 
    **System Health** — Look for: processes listening on all interfaces that shouldn't be, duplicate processes that seem unnecessary, apps connecting to unexpected services, anything that looks misconfigured or out of the ordinary for a healthy macOS system.
 
-4. **RECOMMENDATIONS**: Actionable suggestions for security, performance, and general system hygiene.
-
 Keep your response concise and actionable. Focus on what matters — do not list every single flag if most are routine. A browser having many connections or using non-standard CDN ports is normal. Look for the anomalies.
 
-Format your response in clear sections with the headers VERDICT, SUMMARY, FINDINGS, and RECOMMENDATIONS."""
+Format your response in clear sections with the headers VERDICT, SUMMARY, RECOMMENDATIONS, and FINDINGS (in that exact order)."""
 
     return prompt
 
@@ -290,5 +290,19 @@ def _parse_ai_response(raw_text):
 
     result["summary"] = sections.get("summary", "")
     result["recommendations"] = sections.get("recommendations", "")
+
+    # Reconstruct raw_response with sections in the desired order:
+    # VERDICT, SUMMARY, RECOMMENDATIONS, FINDINGS
+    ordered_parts = []
+    for key, header in [
+        ("verdict_text", "VERDICT"),
+        ("summary", "SUMMARY"),
+        ("recommendations", "RECOMMENDATIONS"),
+        ("findings", "FINDINGS"),
+    ]:
+        if sections.get(key):
+            ordered_parts.append(f"## {header}\n\n{sections[key]}")
+    if ordered_parts:
+        result["raw_response"] = "\n\n".join(ordered_parts)
 
     return result

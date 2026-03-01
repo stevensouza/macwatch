@@ -307,9 +307,15 @@ def api_kill(pid):
         return jsonify({"error": "Permission denied — try running MacWatch with sudo"}), 403
 
 
+@app.route("/alerts")
+def alerts_page():
+    """Render the alerts page."""
+    return render_template("alerts.html")
+
+
 @app.route("/analysis")
 def analysis_page():
-    """Render the analysis page."""
+    """Render the AI analysis page."""
     return render_template("analysis.html")
 
 

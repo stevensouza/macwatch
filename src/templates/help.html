@@ -23,7 +23,8 @@
     </header>
     <div class="help-content">
         <a href="/" class="back-link">← Back to Dashboard</a>
-        <a href="/analysis" class="back-link" style="margin-left: 1rem;">→ Analysis Page</a>
+        <a href="/alerts" class="back-link" style="margin-left: 1rem;">→ Alerts</a>
+        <a href="/analysis" class="back-link" style="margin-left: 1rem;">→ AI Analysis</a>
 
         <h2>1. What is MacWatch?</h2>
         <p>MacWatch shows you what your Mac applications are doing on the network. It answers:</p>
@@ -128,19 +129,20 @@ ALERTS
         <p><strong>Q: Can MacWatch block connections?</strong><br>
         No. Use macOS Firewall or Little Snitch for blocking.</p>
 
-        <p><strong>Q: What is the Analysis page?</strong><br>
-        The Analysis page shows all current alerts grouped by severity with detailed educational explanations for each alert type. It also includes an optional AI-powered analysis feature.</p>
+        <p><strong>Q: What are the Alerts and AI Analysis pages?</strong><br>
+        The Alerts page shows all current alerts grouped by severity with detailed educational explanations for each alert type. The AI Analysis page provides an optional AI-powered assessment of your system's security, performance, and health.</p>
 
         <p><strong>Q: Does AI Analysis send my data externally?</strong><br>
         It depends on the provider. <strong>Ollama</strong> runs entirely on your Mac — no data leaves your machine. Cloud providers (Claude, etc.) send your MacWatch data to their API for analysis. AI analysis is completely optional and only happens when you explicitly click the button.</p>
 
         <p><strong>Q: How do I set up AI Analysis?</strong><br>
-        <em>Ollama (local, free, private):</em> Install Ollama (<code>brew install ollama</code>), start it (<code>ollama serve</code>), pull a model (<code>ollama pull llama3.1</code>), then select Ollama on the Analysis page. No API key needed — all data stays on your machine.<br>
+        <em>Ollama (local, free, private):</em> Install Ollama (<code>brew install ollama</code>), start it (<code>ollama serve</code>), pull a model (<code>ollama pull llama3.1</code>), then select Ollama on the AI Analysis page. No API key needed — all data stays on your machine.<br>
         <em>Claude (cloud):</em> Set <code>export ANTHROPIC_API_KEY="your-key"</code> before starting MacWatch.<br>
-        The Analysis page will show setup instructions if a provider is not configured.</p>
+        The AI Analysis page will show setup instructions if a provider is not configured.</p>
 
         <a href="/" class="back-link">← Back to Dashboard</a>
-        <a href="/analysis" class="back-link" style="margin-left: 1rem;">→ Analysis Page</a>
+        <a href="/alerts" class="back-link" style="margin-left: 1rem;">→ Alerts</a>
+        <a href="/analysis" class="back-link" style="margin-left: 1rem;">→ AI Analysis</a>
     </div>
 </body>
 </html>
