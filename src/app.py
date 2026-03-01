@@ -10,9 +10,9 @@ from flask import Flask, jsonify, render_template, request
 
 from src.collectors import lsof, nettop, process
 from src.enrichment import dns, whois_lookup
-from src.analysis import threat
+from src.analysis import threat, alert_info, ai_analyzer
 from src.utils import format_bytes, port_label
-from src.config import HOST, PORT, STANDARD_PORTS
+from src.config import HOST, PORT, STANDARD_PORTS, AI_DEFAULT_PROVIDER
 
 app = Flask(__name__)
 
@@ -305,6 +305,91 @@ def api_kill(pid):
         return jsonify({"error": "Process not found"}), 404
     except PermissionError:
         return jsonify({"error": "Permission denied — try running MacWatch with sudo"}), 403
+
+
+@app.route("/analysis")
+def analysis_page():
+    """Render the analysis page."""
+    return render_template("analysis.html")
+
+
+@app.route("/api/alert-info")
+def api_alert_info():
+    """Return educational info for all alert types."""
+    return jsonify(alert_info.get_all_alert_info())
+
+
+@app.route("/api/ai-config")
+def api_ai_config():
+    """Return AI provider configuration status (without exposing keys)."""
+    return jsonify({
+        "providers": ai_analyzer.get_available_providers(),
+        "default": AI_DEFAULT_PROVIDER,
+    })
+
+
+@app.route("/api/ai-analyze", methods=["POST"])
+def api_ai_analyze():
+    """Run AI analysis on current MacWatch data."""
+    req_data = request.get_json(silent=True) or {}
+    provider_name = req_data.get("provider", AI_DEFAULT_PROVIDER)
+
+    try:
+        provider = ai_analyzer.get_provider(provider_name)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
+    if not provider.is_configured():
+        env_var_hints = {
+            "claude": "ANTHROPIC_API_KEY",
+            "openai": "OPENAI_API_KEY",
+            "gemini": "GOOGLE_AI_API_KEY",
+            "ollama": "(no key needed — ensure Ollama is running locally)",
+        }
+        hint = env_var_hints.get(provider_name, "the appropriate API key")
+        return jsonify({
+            "error": f"{provider.provider_name()} is not configured. "
+                     f"Set the {hint} environment variable and restart MacWatch.",
+            "error_type": "not_configured",
+        }), 400
+
+    try:
+        # Collect current data
+        dashboard_data = _build_dashboard_data()
+
+        # Build prompt and call AI provider
+        prompt = ai_analyzer.build_analysis_prompt(dashboard_data)
+
+        result = provider.analyze(prompt)
+        result["provider"] = provider.provider_name()
+        return jsonify(result)
+    except Exception as e:
+        error_message = str(e)
+        if isinstance(e, ConnectionError) or "Cannot reach Ollama" in error_message:
+            return jsonify({
+                "error": error_message,
+                "error_type": "not_configured",
+            }), 503
+        elif "AuthenticationError" in type(e).__name__ or "401" in error_message:
+            return jsonify({
+                "error": "Invalid API key. Check your environment variable and restart MacWatch.",
+                "error_type": "auth_error",
+            }), 401
+        elif "RateLimitError" in type(e).__name__ or "429" in error_message:
+            return jsonify({
+                "error": "AI provider rate limit reached. Please wait a moment and try again.",
+                "error_type": "rate_limit",
+            }), 429
+        elif "timeout" in error_message.lower() or "Timeout" in type(e).__name__:
+            return jsonify({
+                "error": "AI provider did not respond in time. Please try again.",
+                "error_type": "timeout",
+            }), 504
+        else:
+            return jsonify({
+                "error": f"AI analysis failed: {error_message}",
+                "error_type": "unknown",
+            }), 500
 
 
 @app.route("/help")

@@ -31,6 +31,17 @@
                 <span class="subtitle">System Health Dashboard</span>
             </div>
         </div>
+        <nav class="header-tabs">
+            <a href="/" class="header-tab active">
+                <svg viewBox="0 0 20 20" fill="none"><rect x="3" y="3" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="3" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="3" y="11" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="11" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/></svg>
+                Dashboard
+            </a>
+            <a href="/analysis" class="header-tab" id="analysis-tab">
+                <svg viewBox="0 0 20 20" fill="none"><path d="M10 2L3 6v5c0 5 3 9.5 7 11 4-1.5 7-6 7-11V6l-7-4z" stroke="currentColor" stroke-width="1.5" fill="none"/><path d="M7 10l2 2 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Analysis
+                <span class="tab-alert-badge" id="tab-alert-badge" style="display:none"></span>
+            </a>
+        </nav>
         <div class="header-controls">
             <div class="search-wrapper">
                 <svg class="search-icon" viewBox="0 0 20 20" fill="none"><circle cx="8.5" cy="8.5" r="5.5" stroke="currentColor" stroke-width="1.5"/><path d="M13 13L17 17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
@@ -117,21 +128,6 @@
             <span class="threat-legend-item" data-tooltip="Threat score 1–2 — minor concerns, usually benign"><span class="legend-swatch swatch-yellow"></span>Low</span>
             <span class="threat-legend-item" data-tooltip="Threat score 3–5 — multiple concerns, worth investigating"><span class="legend-swatch swatch-orange"></span>Medium</span>
             <span class="threat-legend-item" data-tooltip="Threat score 6+ — significant risk indicators, investigate immediately"><span class="legend-swatch swatch-red"></span>High</span>
-        </div>
-
-        <!-- Alerts Panel -->
-        <div class="alerts-panel" id="alerts-panel">
-            <div class="alerts-header" onclick="toggleAlerts()">
-                <div class="alerts-title">
-                    <svg viewBox="0 0 20 20" fill="none" width="16" height="16"><path d="M10 2L1 18h18L10 2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M10 8v4M10 14.5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-                    <span>Alerts</span>
-                    <span class="alert-counts" id="alert-counts"></span>
-                </div>
-                <span class="toggle-icon collapsed" id="alerts-toggle">
-                    <svg viewBox="0 0 20 20" fill="none" width="14" height="14"><path d="M5 8l5 5 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                </span>
-            </div>
-            <div class="alerts-body collapsed" id="alerts-body"></div>
         </div>
 
         <!-- Application Cards -->

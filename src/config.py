@@ -85,6 +85,10 @@ UNIQUE_IP_THRESHOLD = 20
 DNS_CACHE_TTL = 600  # 10 minutes
 WHOIS_CACHE_TTL = 86400  # 24 hours
 
+# AI Analysis
+AI_DEFAULT_PROVIDER = "ollama"
+AI_REQUEST_TIMEOUT = 120  # seconds (Ollama local models may be slower)
+
 # Score level thresholds
 SCORE_LEVELS = {
     "clean": (0, 0),

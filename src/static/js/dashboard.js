@@ -73,7 +73,7 @@ async function refresh() {
 
 function renderDashboard(data) {
     renderSummary(data.summary);
-    renderAlerts(data.alerts);
+    updateAnalysisTabBadge(data.alerts, data.summary);
     renderApps(data.apps);
 }
 
@@ -84,40 +84,28 @@ function renderSummary(summary) {
     document.getElementById('bytes-out').textContent = summary.bytes_out_fmt;
 }
 
-function renderAlerts(alerts) {
-    const counts = document.getElementById('alert-counts');
-    const body = document.getElementById('alerts-body');
+function updateAnalysisTabBadge(alerts, summary) {
+    const badge = document.getElementById('tab-alert-badge');
+    if (!badge) return;
 
-    if (alerts.length === 0) {
-        counts.textContent = '';
-        body.innerHTML = '<div class="alert-all-clear"><span class="conn-flag flag-green"></span> All connections look normal</div>';
+    // Only count non-info alerts (red, yellow, blue)
+    const count = (summary.red_count || 0) + (summary.yellow_count || 0) + (summary.blue_count || 0);
+
+    if (count === 0) {
+        badge.style.display = 'none';
         return;
     }
 
-    const red = alerts.filter(a => a.severity === 'red').length;
-    const yellow = alerts.filter(a => a.severity === 'yellow').length;
-    const blue = alerts.filter(a => a.severity === 'blue').length;
-    const parts = [];
-    if (red) parts.push(`${red} critical`);
-    if (yellow) parts.push(`${yellow} warning`);
-    if (blue) parts.push(`${blue} info`);
-    counts.textContent = '(' + parts.join(', ') + ')';
+    badge.textContent = count;
+    badge.style.display = 'inline-block';
 
-    body.innerHTML = alerts.map(alert => {
-        return `<div class="alert-item">
-            <span class="alert-severity sev-${alert.severity}" data-tooltip="${alertSeverityTooltip(alert.severity)}"></span>
-            <span class="alert-text"><span class="alert-app">${esc(alert.app)}</span> ${esc(alert.description)}</span>
-        </div>`;
-    }).join('');
-}
-
-function alertSeverityTooltip(severity) {
-    switch (severity) {
-        case 'red': return 'Critical: Potentially dangerous activity that needs immediate attention';
-        case 'yellow': return 'Warning: Unusual activity worth investigating';
-        case 'blue': return 'Informational: Notable but likely benign activity';
-        case 'info': return 'New: A connection to a previously unseen host was detected';
-        default: return '';
+    // Color by highest severity present
+    if (summary.red_count > 0) {
+        badge.className = 'tab-alert-badge badge-red';
+    } else if (summary.yellow_count > 0) {
+        badge.className = 'tab-alert-badge badge-yellow';
+    } else {
+        badge.className = 'tab-alert-badge badge-blue';
     }
 }
 
@@ -568,15 +556,6 @@ function expandAll() {
 function collapseAll() {
     expandedApps.clear();
     if (currentData) renderApps(currentData.apps);
-}
-
-// --- Alerts ---
-
-function toggleAlerts() {
-    const body = document.getElementById('alerts-body');
-    const icon = document.getElementById('alerts-toggle');
-    body.classList.toggle('collapsed');
-    icon.classList.toggle('collapsed');
 }
 
 // --- Auto-Refresh ---
