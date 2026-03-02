@@ -1618,10 +1618,11 @@ footer {
 }
 
 .ai-meta {
-    padding: 0.5rem 1.5rem;
-    border-top: 1px solid var(--border-subtle);
+    padding: 0.4rem 1.5rem;
+    border-bottom: 1px solid var(--border-subtle);
     font-size: 0.7rem;
     color: var(--text-muted);
+    background: rgba(255, 255, 255, 0.015);
 }
 
 /* Footer nav link */
