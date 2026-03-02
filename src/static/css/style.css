@@ -740,7 +740,7 @@ main {
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius);
     margin-bottom: 0.6rem;
-    overflow: hidden;
+    overflow: visible;
     transition: border-color 0.2s;
     animation: fadeInUp 0.35s ease both;
 }
@@ -751,6 +751,8 @@ main {
 
 .app-card:hover {
     border-color: var(--border);
+    z-index: 10;
+    position: relative;
 }
 
 .app-card.threat-red { border-left: 3px solid var(--red); }
@@ -794,7 +796,10 @@ main {
     font-weight: 600;
     font-size: 0.95rem;
     color: var(--text-bright);
-    min-width: 130px;
+    width: 340px;
+    flex-shrink: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .app-command-hint {
@@ -846,7 +851,6 @@ main {
 .sign-badge.unsigned { color: var(--red); }
 
 .threat-badge {
-    margin-left: auto;
     padding: 0.2rem 0.65rem;
     border-radius: 20px;
     font-size: 0.75rem;
@@ -878,7 +882,6 @@ main {
     justify-content: center;
     flex-shrink: 0;
     transition: color 0.15s, border-color 0.15s, background 0.15s;
-    margin-left: 0.5rem;
 }
 
 .app-info-btn:hover {

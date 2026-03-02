@@ -79,13 +79,13 @@ function renderAlertCard(alert) {
         <div class="analysis-alert-header${hasInfo ? '' : ' no-expand'}" ${hasInfo ? `onclick="toggleAlertDetail(this)"` : ''}>
             <span class="alert-severity-dot sev-${alert.severity}"></span>
             <span class="analysis-alert-app">${esc(alert.app)}</span>
-            <span class="analysis-alert-desc">${esc(alert.description)}</span>
             ${hasInfo ? `<span class="toggle-icon collapsed">
                 <svg viewBox="0 0 20 20" fill="none" width="14" height="14">
                     <path d="M5 8l5 5 5-5" stroke="currentColor" stroke-width="1.5"
                           stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
             </span>` : ''}
+            <span class="analysis-alert-desc">${esc(alert.description)}</span>
         </div>
         ${hasInfo ? `<div class="analysis-alert-detail collapsed">
             ${info.what ? `

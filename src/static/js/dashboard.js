@@ -168,6 +168,12 @@ function renderApps(apps) {
                     <svg viewBox="0 0 20 20" fill="none"><path d="M7 4l6 6-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 </span>
                 <span class="app-name">${esc(app.app)}${cmdHint}</span>
+                <span class="threat-badge ${app.threat_color}" data-tooltip="${escAttr(threatTooltip)}">
+                    ${app.threat_score}
+                </span>
+                <button class="app-info-btn" onclick="event.stopPropagation(); showProcessDetail(this)" data-app='${escAttr(JSON.stringify(app))}' data-tooltip="View process details">
+                    <svg viewBox="0 0 16 16" fill="none" width="14" height="14"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.2"/><path d="M8 7v4M8 5.5v.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+                </button>
                 <div class="app-meta">
                     <span class="app-meta-item" data-tooltip="${TOOLTIPS.conn}">
                         ${app.connection_count} conn
@@ -190,12 +196,6 @@ function renderApps(apps) {
                         ${signIcon} ${app.signed ? 'Signed' : 'Unsigned'}
                     </span>
                 </div>
-                <span class="threat-badge ${app.threat_color}" data-tooltip="${escAttr(threatTooltip)}">
-                    ${app.threat_score}
-                </span>
-                <button class="app-info-btn" onclick="event.stopPropagation(); showProcessDetail(this)" data-app='${escAttr(JSON.stringify(app))}' data-tooltip="View process details">
-                    <svg viewBox="0 0 16 16" fill="none" width="14" height="14"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.2"/><path d="M8 7v4M8 5.5v.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
-                </button>
             </div>
             <div class="conn-table-wrapper ${isExpanded ? 'expanded' : ''}">
                 ${renderConnTable(conns, app)}
