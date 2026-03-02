@@ -2,6 +2,7 @@
 
 import json
 import os
+import uuid
 import urllib.request
 import urllib.error
 from abc import ABC, abstractmethod
@@ -29,11 +30,11 @@ class AIProvider(ABC):
 class ClaudeProvider(AIProvider):
     """Anthropic Claude API provider."""
 
-    MODEL = "claude-sonnet-4-5"
+    MODEL = "claude-sonnet-4-6"
     MAX_TOKENS = 4096
 
     def provider_name(self):
-        return "Claude (Anthropic)"
+        return "Claude (API)"
 
     def is_configured(self):
         return bool(os.environ.get("ANTHROPIC_API_KEY"))
@@ -50,6 +51,173 @@ class ClaudeProvider(AIProvider):
 
         raw_text = message.content[0].text
         return _parse_ai_response(raw_text)
+
+
+class ClaudeWebProvider(AIProvider):
+    """Claude via claude.ai web API — uses Pro/Max subscription tokens."""
+
+    API_BASE = "https://claude.ai/api/organizations"
+    MODEL = "claude-sonnet-4-6"
+    TIMEOUT = 120
+
+    def provider_name(self):
+        return "Claude (Web/Subscription)"
+
+    def is_configured(self):
+        return bool(os.environ.get("CLAUDE_SESSION_KEY")) and bool(
+            os.environ.get("CLAUDE_ORG_ID")
+        )
+
+    def analyze(self, prompt):
+        org_id = os.environ["CLAUDE_ORG_ID"]
+        session_key = os.environ["CLAUDE_SESSION_KEY"]
+        cookie = f"sessionKey={session_key}"
+
+        conv_uuid = str(uuid.uuid4())
+        self._create_conversation(org_id, cookie, conv_uuid)
+
+        try:
+            raw_text = self._send_message(org_id, cookie, conv_uuid, prompt)
+        finally:
+            self._delete_conversation(org_id, cookie, conv_uuid)
+
+        if not raw_text:
+            raise ValueError(
+                "Claude Web returned an empty response. "
+                "Your session key may be expired — get a fresh one from claude.ai."
+            )
+
+        return _parse_ai_response(raw_text)
+
+    def _create_conversation(self, org_id, cookie, conv_uuid):
+        """Create a temporary conversation on claude.ai."""
+        url = f"{self.API_BASE}/{org_id}/chat_conversations"
+        body = json.dumps({
+            "uuid": conv_uuid,
+            "name": "",
+            "include_conversation_preferences": True,
+            "is_temporary": True,
+        }).encode("utf-8")
+
+        req = urllib.request.Request(
+            url,
+            data=body,
+            headers={
+                "Content-Type": "application/json",
+                "Cookie": cookie,
+                "User-Agent": "MacWatch/1.0",
+            },
+            method="POST",
+        )
+
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                if resp.status not in (200, 201):
+                    raise ConnectionError(
+                        f"Create conversation failed: HTTP {resp.status}"
+                    )
+        except urllib.error.HTTPError as e:
+            if e.code in (401, 403):
+                raise PermissionError(
+                    "Claude Web session expired or invalid. "
+                    "Update CLAUDE_SESSION_KEY with a fresh value from claude.ai."
+                ) from e
+            raise ConnectionError(
+                f"Create conversation failed: HTTP {e.code}"
+            ) from e
+        except urllib.error.URLError as e:
+            raise ConnectionError(f"Cannot reach claude.ai: {e.reason}") from e
+
+    def _send_message(self, org_id, cookie, conv_uuid, prompt):
+        """Send a message and parse the SSE stream to collect the full response."""
+        url = f"{self.API_BASE}/{org_id}/chat_conversations/{conv_uuid}/completion"
+        body = json.dumps({
+            "prompt": prompt,
+            "parent_message_uuid": "00000000-0000-4000-8000-000000000000",
+            "model": self.MODEL,
+            "timezone": "UTC",
+            "attachments": [],
+            "files": [],
+            "tools": [],
+            "rendering_mode": "messages",
+            "sync_sources": [],
+        }).encode("utf-8")
+
+        req = urllib.request.Request(
+            url,
+            data=body,
+            headers={
+                "Content-Type": "application/json",
+                "Accept": "text/event-stream",
+                "Cookie": cookie,
+                "User-Agent": "MacWatch/1.0",
+            },
+            method="POST",
+        )
+
+        try:
+            with urllib.request.urlopen(req, timeout=self.TIMEOUT) as resp:
+                raw_data = resp.read().decode("utf-8")
+        except urllib.error.HTTPError as e:
+            if e.code in (401, 403):
+                raise PermissionError(
+                    "Claude Web session expired or invalid. "
+                    "Update CLAUDE_SESSION_KEY with a fresh value from claude.ai."
+                ) from e
+            body_text = ""
+            try:
+                body_text = e.read().decode("utf-8")[:200]
+            except Exception:
+                pass
+            raise ConnectionError(
+                f"Claude Web completion failed: HTTP {e.code}: {body_text}"
+            ) from e
+        except urllib.error.URLError as e:
+            raise ConnectionError(f"Cannot reach claude.ai: {e.reason}") from e
+
+        return self._parse_sse(raw_data)
+
+    def _parse_sse(self, raw_data):
+        """Parse SSE event stream and extract text from content_block_delta events."""
+        response_text = ""
+        current_event = ""
+
+        for line in raw_data.split("\n"):
+            trimmed = line.strip()
+
+            if trimmed.startswith("event:"):
+                current_event = trimmed[len("event:"):].strip()
+            elif trimmed.startswith("data:"):
+                payload = trimmed[len("data:"):].strip()
+                if payload and current_event == "content_block_delta":
+                    try:
+                        obj = json.loads(payload)
+                        response_text += obj.get("delta", {}).get("text", "")
+                    except (json.JSONDecodeError, KeyError):
+                        pass
+                elif payload and current_event == "error":
+                    try:
+                        obj = json.loads(payload)
+                        msg = obj.get("error") or obj.get("message") or str(obj)
+                        raise RuntimeError(f"Claude Web stream error: {msg}")
+                    except json.JSONDecodeError:
+                        raise RuntimeError(f"Claude Web stream error: {payload}")
+
+        return response_text
+
+    def _delete_conversation(self, org_id, cookie, conv_uuid):
+        """Delete the temporary conversation (best-effort cleanup)."""
+        url = f"{self.API_BASE}/{org_id}/chat_conversations/{conv_uuid}"
+        req = urllib.request.Request(
+            url,
+            headers={"Cookie": cookie, "User-Agent": "MacWatch/1.0"},
+            method="DELETE",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=10):
+                pass
+        except Exception:
+            pass  # Best-effort — don't fail if cleanup fails
 
 
 class OllamaProvider(AIProvider):
@@ -104,10 +272,11 @@ class OllamaProvider(AIProvider):
 PROVIDERS = {
     "ollama": OllamaProvider,
     "claude": ClaudeProvider,
+    "claude-web": ClaudeWebProvider,
 }
 
 
-def get_provider(name="claude"):
+def get_provider(name="ollama"):
     """Get an AI provider instance by name."""
     provider_class = PROVIDERS.get(name)
     if not provider_class:
@@ -208,31 +377,50 @@ Alerts: {summary.get('alert_count', 0)} (Red: {summary.get('red_count', 0)}, Yel
 {chr(10).join(alert_lines) if alert_lines else "  No alerts."}
 
 == YOUR TASK ==
-Analyze this data from three perspectives and provide:
+You are writing a professional system audit report. Analyze this data from three perspectives — security, performance, and system health — and show your work. The reader should be able to see what you reviewed and what your conclusions were for each area, even when everything looks normal.
+
+Provide the following sections:
 
 1. **VERDICT**: State either "CONCERNS" or "NO CONCERNS" at the top.
-   - "CONCERNS" = you found something that warrants the user's attention (security, performance, or health)
+   - "CONCERNS" = you found something that warrants the user's attention
    - "NO CONCERNS" = everything looks like normal macOS activity
 
 2. **SUMMARY**: A 2-3 sentence overall assessment of the system's health.
 
-3. **RECOMMENDATIONS**: Actionable suggestions for security, performance, and general system hygiene.
+3. **RECOMMENDATIONS**: Actionable suggestions for security, performance, and general system hygiene. If the system looks healthy, suggest preventive best practices.
 
-4. **FINDINGS**: List the most important observations grouped by category. For each finding:
-   - Category: SECURITY, PERFORMANCE, or HEALTH
-   - Severity: HIGH, MEDIUM, or LOW
-   - What you found
-   - What the user should do about it
+4. **FINDINGS**: This is the core of your audit. Cover ALL three categories below, even when things look normal. For each category, state what you reviewed and your conclusion. Use a mix of severity levels:
+   - **HIGH/MEDIUM** for actual concerns requiring attention
+   - **LOW** for minor observations worth noting
+   - **INFO** for things you reviewed that look healthy — these confirm the audit was thorough
 
-   **Security** — Look for: suspicious network connections, unsigned apps, unusual traffic patterns, connections to unexpected countries/IPs, high upload ratios, plaintext HTTP, etc.
+   **Security** — Review: code signing status of all apps, network connection destinations (countries, orgs), use of encryption (HTTPS vs HTTP), upload/download ratios, connections to VPS/hosting providers, unsigned binaries, and any unusual patterns. Reference the threat scores and flags MacWatch assigned to each app — confirm whether you agree with them or if any are over/under-flagged. State what you found.
 
-   **Performance** — Look for: processes with high CPU usage, excessive memory consumption, high retransmission rates (network quality), apps with unusually many connections, large cumulative traffic that might indicate leaks or runaway processes.
+   **Performance** — Review: CPU usage across all processes (note the highest consumers and the total), memory usage (note the top consumers), network retransmission rates (indicator of connection quality), number of connections per app, and cumulative traffic volumes. State specific numbers from the data.
 
-   **System Health** — Look for: processes listening on all interfaces that shouldn't be, duplicate processes that seem unnecessary, apps connecting to unexpected services, anything that looks misconfigured or out of the ordinary for a healthy macOS system.
+   **System Health** — Review: processes listening on network interfaces (and whether they should be), code signing coverage, number of running apps vs connections, any duplicate or unexpected processes, and overall system posture. State what you found.
 
-Keep your response concise and actionable. Focus on what matters — do not list every single flag if most are routine. A browser having many connections or using non-standard CDN ports is normal. Look for the anomalies.
+5. **AUDIT SCOPE**: End with a one-line summary of what was reviewed: how many apps, connections, and alerts were in the dataset.  Also reference the alerts section — confirm whether the alerts MacWatch raised are valid and if anything was missed.
 
-Format your response in clear sections with the headers VERDICT, SUMMARY, RECOMMENDATIONS, and FINDINGS (in that exact order)."""
+A browser having many connections or using CDN ports is normal — don't flag routine behavior. But DO mention what you reviewed and that it looked normal, so the reader knows it wasn't overlooked.
+
+Format your response in clear sections with the headers VERDICT, SUMMARY, RECOMMENDATIONS, and FINDINGS (in that exact order).
+
+IMPORTANT FORMATTING RULES:
+- Do NOT use markdown tables (no pipe | characters). Use bullet lists instead.
+- Within FINDINGS, use exactly "### Security", "### Performance", and "### System Health" as sub-section headers. You MUST include the ### prefix — bare text like "Security" will not render as a header. Do NOT use #### — only ### is supported.
+- For FINDINGS, each bullet MUST include a short bolded topic label after the severity. This lets readers scan quickly. Format:
+  - **[CATEGORY] [SEVERITY]: [Topic Label]** — Description with specific numbers from the data. Conclusion or action.
+  - The topic label should be 1-3 words identifying what the finding is about.
+  - Examples:
+    - **PERFORMANCE INFO: CPU Usage** — CPU usage is low across all processes. Highest consumer is Brave at 1.2%%, total system under 5%%. No pressure.
+    - **PERFORMANCE MEDIUM: Idle Memory** — Ollama is consuming 25%% of memory while idle at 0%% CPU. Consider stopping it to free RAM.
+    - **SECURITY INFO: Code Signing** — All commercial apps are properly signed. No tampered binaries detected.
+    - **SECURITY MEDIUM: Open Listener** — Java is listening on 0.0.0.0:8080, exposing it to the local network. Confirm this is intentional.
+- For RECOMMENDATIONS, also use a short bolded topic label at the start of each item:
+  - **Network quality** — Investigate the high retransmission counts...
+- Use **bold**, *italic*, bullet lists (- item), and ### headers only.
+- Keep formatting simple — the rendering engine supports basic markdown only."""
 
     return prompt
 

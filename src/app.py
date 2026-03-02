@@ -348,6 +348,7 @@ def api_ai_analyze():
     if not provider.is_configured():
         env_var_hints = {
             "claude": "ANTHROPIC_API_KEY",
+            "claude-web": "CLAUDE_SESSION_KEY and CLAUDE_ORG_ID",
             "openai": "OPENAI_API_KEY",
             "gemini": "GOOGLE_AI_API_KEY",
             "ollama": "(no key needed — ensure Ollama is running locally)",
@@ -371,7 +372,12 @@ def api_ai_analyze():
         return jsonify(result)
     except Exception as e:
         error_message = str(e)
-        if isinstance(e, ConnectionError) or "Cannot reach Ollama" in error_message:
+        if isinstance(e, PermissionError):
+            return jsonify({
+                "error": str(e),
+                "error_type": "auth_error",
+            }), 401
+        elif isinstance(e, ConnectionError) or "Cannot reach Ollama" in error_message:
             return jsonify({
                 "error": error_message,
                 "error_type": "not_configured",

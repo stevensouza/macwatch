@@ -46,6 +46,17 @@ function updateAIConfigStatus() {
                 ollama pull llama3.1
                 </code>
             `;
+        } else if (selectedId === 'claude-web') {
+            notConfigured.innerHTML = `
+                <strong>Claude (Web/Subscription) is not configured.</strong><br>
+                Set <code>CLAUDE_SESSION_KEY</code> and <code>CLAUDE_ORG_ID</code> in your .env file or environment.<br>
+                <code style="display:block; margin-top:0.5rem; font-size:0.78rem;">
+                # In .env at project root:<br>
+                CLAUDE_SESSION_KEY=sk-ant-sid02-...<br>
+                CLAUDE_ORG_ID=your-org-uuid<br><br>
+                # Get these from claude.ai &rarr; DevTools &rarr; Application &rarr; Cookies
+                </code>
+            `;
         } else {
             const envVars = {
                 claude: 'ANTHROPIC_API_KEY',
@@ -76,6 +87,8 @@ function updateAIConfigStatus() {
     if (privacyNote) {
         if (selectedId === 'ollama') {
             privacyNote.textContent = 'Ollama runs locally — your data stays on this machine';
+        } else if (selectedId === 'claude-web') {
+            privacyNote.textContent = 'Uses your Claude Pro/Max subscription — no separate API billing';
         } else {
             privacyNote.textContent = 'Sends current MacWatch data to the selected AI provider for analysis';
         }
@@ -84,6 +97,25 @@ function updateAIConfigStatus() {
 
 
 // --- AI Analysis ---
+
+let elapsedTimer = null;
+
+function startElapsedTimer() {
+    const el = document.getElementById('ai-elapsed');
+    const start = Date.now();
+    el.textContent = '0s';
+    elapsedTimer = setInterval(() => {
+        const secs = Math.floor((Date.now() - start) / 1000);
+        el.textContent = `${secs}s`;
+    }, 1000);
+}
+
+function stopElapsedTimer() {
+    if (elapsedTimer) {
+        clearInterval(elapsedTimer);
+        elapsedTimer = null;
+    }
+}
 
 async function runAIAnalysis() {
     const provider = document.getElementById('ai-provider').value;
@@ -97,6 +129,8 @@ async function runAIAnalysis() {
     loading.style.display = 'flex';
     errorEl.style.display = 'none';
     resultEl.style.display = 'none';
+    const analysisStart = Date.now();
+    startElapsedTimer();
 
     try {
         const resp = await fetch('/api/ai-analyze', {
@@ -111,11 +145,14 @@ async function runAIAnalysis() {
             throw new Error(data.error || 'Analysis failed');
         }
 
+        data._elapsed = Math.round((Date.now() - analysisStart) / 1000);
+        data._timestamp = new Date().toLocaleString();
         renderAIResult(data);
     } catch (err) {
         errorEl.textContent = err.message;
         errorEl.style.display = 'block';
     } finally {
+        stopElapsedTimer();
         loading.style.display = 'none';
         btn.disabled = false;
         btn.classList.remove('disabled');
@@ -144,7 +181,7 @@ function renderAIResult(data) {
     }
 
     bodyEl.innerHTML = markdownToHtml(data.raw_response);
-    metaEl.textContent = `Analyzed by ${data.provider || 'AI'}`;
+    metaEl.textContent = `Analyzed by ${data.provider || 'AI'} on ${data._timestamp || 'unknown'} (${data._elapsed || '?'}s)`;
     resultEl.style.display = 'block';
 }
 
