@@ -291,12 +291,10 @@ def _parse_ai_response(raw_text):
     result["summary"] = sections.get("summary", "")
     result["recommendations"] = sections.get("recommendations", "")
 
-    # Reconstruct raw_response with sections in the desired order:
-    # VERDICT, SUMMARY, RECOMMENDATIONS, FINDINGS
+    # Reconstruct raw_response with remaining sections (VERDICT and SUMMARY
+    # are displayed as separate UI elements, so exclude them here)
     ordered_parts = []
     for key, header in [
-        ("verdict_text", "VERDICT"),
-        ("summary", "SUMMARY"),
         ("recommendations", "RECOMMENDATIONS"),
         ("findings", "FINDINGS"),
     ]:

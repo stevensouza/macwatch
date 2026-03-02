@@ -1574,6 +1574,15 @@ footer {
 
 .verdict-icon { font-size: 1.3rem; }
 
+.ai-summary {
+    padding: 1rem 1.5rem;
+    font-size: 0.88rem;
+    line-height: 1.7;
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.02);
+}
+
 .ai-response-body {
     padding: 1.5rem;
     font-size: 0.82rem;
