@@ -86,7 +86,7 @@ DNS_CACHE_TTL = 600  # 10 minutes
 WHOIS_CACHE_TTL = 86400  # 24 hours
 
 # AI Analysis
-AI_DEFAULT_PROVIDER = "ollama"
+AI_DEFAULT_PROVIDER = "claude"
 AI_REQUEST_TIMEOUT = 120  # seconds (Ollama local models may be slower)
 
 # Score level thresholds

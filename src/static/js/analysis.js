@@ -125,6 +125,7 @@ async function runAIAnalysis() {
 function renderAIResult(data) {
     const resultEl = document.getElementById('ai-result');
     const verdictEl = document.getElementById('ai-verdict');
+    const summaryEl = document.getElementById('ai-summary');
     const bodyEl = document.getElementById('ai-response-body');
     const metaEl = document.getElementById('ai-meta');
 
@@ -134,6 +135,13 @@ function renderAIResult(data) {
         <span class="verdict-icon">${isConcerns ? '&#9888;' : '&#10003;'}</span>
         <span class="verdict-text">${isConcerns ? 'Concerns Identified' : 'No Concerns'}</span>
     `;
+
+    if (data.summary) {
+        summaryEl.innerHTML = markdownToHtml(data.summary);
+        summaryEl.style.display = 'block';
+    } else {
+        summaryEl.style.display = 'none';
+    }
 
     bodyEl.innerHTML = markdownToHtml(data.raw_response);
     metaEl.textContent = `Analyzed by ${data.provider || 'AI'}`;
