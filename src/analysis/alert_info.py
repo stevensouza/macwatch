@@ -258,6 +258,206 @@ ALERT_INFO = {
             "and whether it should be network-accessible."
         ),
     },
+    "high_cpu": {
+        "title": "High CPU Usage",
+        "severity": "yellow",
+        "weight": 0,
+        "category": "cpu",
+        "what": (
+            "This process is consuming more than 80% of your CPU. Sustained high "
+            "CPU usage can slow down your entire system and drain battery life on "
+            "laptops."
+        ),
+        "why": (
+            "High CPU usage is normal during intensive tasks like compiling code, "
+            "rendering video, or running simulations. However, unexplained CPU spikes "
+            "from unfamiliar processes could indicate malware (crypto miners), runaway "
+            "loops, or software bugs."
+        ),
+        "typical": (
+            "Common for: compilers (gcc, clang, javac), video editors, browsers with "
+            "heavy tabs, Spotlight indexing (mds_stores), software updates, and "
+            "virtualization (Docker, VMs)."
+        ),
+        "action": (
+            "If you recognize the process and it is performing expected work, no action "
+            "needed. If the high usage persists unexpectedly, consider restarting the "
+            "application. Use the process detail to check its command line and parent "
+            "process for clues."
+        ),
+    },
+    "high_memory": {
+        "title": "High Memory Usage",
+        "severity": "yellow",
+        "weight": 0,
+        "category": "memory",
+        "what": (
+            "This process is using more than 15% of your total system memory. Large "
+            "memory consumers can force macOS to swap to disk, significantly slowing "
+            "down your system."
+        ),
+        "why": (
+            "Memory-intensive processes reduce available RAM for other applications. "
+            "When physical memory runs out, macOS compresses pages and swaps to disk, "
+            "causing noticeable slowdowns. A single process consuming excessive memory "
+            "may indicate a memory leak."
+        ),
+        "typical": (
+            "Common for: web browsers (especially with many tabs), IDEs (Xcode, "
+            "IntelliJ), Docker containers, Electron apps (Slack, VS Code), and "
+            "database servers."
+        ),
+        "action": (
+            "Check if the memory usage is expected for the workload. If a process's "
+            "memory keeps growing over time, it may have a memory leak — restarting "
+            "it will reclaim the memory."
+        ),
+    },
+    "system_cpu_critical": {
+        "title": "Critical System CPU Load",
+        "severity": "red",
+        "weight": 0,
+        "category": "cpu",
+        "what": (
+            "Overall system CPU usage exceeds 90%. Your Mac is under heavy load and "
+            "may feel sluggish or unresponsive."
+        ),
+        "why": (
+            "At this level, all CPU cores are nearly saturated. User interface "
+            "responsiveness drops, applications may hang, and background tasks "
+            "compete for limited resources. Battery drain on laptops will be "
+            "significantly increased."
+        ),
+        "typical": (
+            "Normal during: software compilation, video encoding, large file "
+            "compression, system updates, or running multiple resource-intensive "
+            "applications simultaneously."
+        ),
+        "action": (
+            "Check the Processes tab to identify which applications are consuming the "
+            "most CPU. Close unnecessary applications or wait for intensive tasks to "
+            "complete. If no obvious cause is found, look for runaway processes."
+        ),
+    },
+    "system_cpu_high": {
+        "title": "High System CPU Load",
+        "severity": "yellow",
+        "weight": 0,
+        "category": "cpu",
+        "what": (
+            "Overall system CPU usage exceeds 75%. Your Mac is working hard but should "
+            "still be responsive."
+        ),
+        "why": (
+            "Elevated CPU usage means more than three quarters of your processing power "
+            "is in use. The system should still feel responsive, but adding more "
+            "demanding tasks may cause slowdowns."
+        ),
+        "typical": (
+            "Common during active work with multiple applications, background updates, "
+            "or moderate workloads like web browsing with many tabs."
+        ),
+        "action": (
+            "Usually no action needed. Check the Processes tab if you notice slowdowns "
+            "to identify the biggest CPU consumers."
+        ),
+    },
+    "system_memory_critical": {
+        "title": "Critical Memory Pressure",
+        "severity": "red",
+        "weight": 0,
+        "category": "memory",
+        "what": (
+            "System memory usage exceeds 90%. macOS is likely swapping heavily to disk, "
+            "which significantly degrades performance."
+        ),
+        "why": (
+            "When physical memory is nearly exhausted, macOS must compress memory pages "
+            "and write them to disk (swap). Disk I/O is orders of magnitude slower than "
+            "RAM, causing noticeable lag, slow app launches, and spinning beach balls."
+        ),
+        "typical": (
+            "Common when: running many applications simultaneously, working with large "
+            "files (video editing, large spreadsheets), or running virtual machines."
+        ),
+        "action": (
+            "Close applications you are not actively using. Check the Processes tab to "
+            "find the largest memory consumers. If this is chronic, your workload may "
+            "require more RAM."
+        ),
+    },
+    "system_memory_high": {
+        "title": "High Memory Usage",
+        "severity": "yellow",
+        "weight": 0,
+        "category": "memory",
+        "what": (
+            "System memory usage exceeds 80%. Your Mac still has some memory headroom "
+            "but is approaching the point where performance may degrade."
+        ),
+        "why": (
+            "At this level, macOS may start compressing memory pages to free up space. "
+            "Adding more applications or opening large files could push the system into "
+            "active swapping."
+        ),
+        "typical": (
+            "Normal for typical multitasking with browsers, IDEs, and communication "
+            "apps open simultaneously."
+        ),
+        "action": (
+            "Keep an eye on memory usage. If you plan to open resource-intensive "
+            "applications, consider closing some existing ones first."
+        ),
+    },
+    "system_disk_critical": {
+        "title": "Critical Disk Space",
+        "severity": "red",
+        "weight": 0,
+        "category": "disk",
+        "what": (
+            "Root volume disk usage exceeds 95%. Your Mac is critically low on disk "
+            "space, which can cause system instability."
+        ),
+        "why": (
+            "macOS needs free disk space for virtual memory (swap files), temporary "
+            "files, system updates, and application caches. When disk space runs out, "
+            "applications may crash, the system may become unbootable, and data loss "
+            "can occur."
+        ),
+        "typical": (
+            "This is never normal and should always be addressed. Common causes: large "
+            "media files, overgrown caches, old Time Machine snapshots, or accumulated "
+            "downloads."
+        ),
+        "action": (
+            "Free up disk space immediately. Check Storage in System Settings, empty "
+            "the Trash, clear browser caches, remove unused applications, and consider "
+            "moving large files to external storage."
+        ),
+    },
+    "system_disk_high": {
+        "title": "High Disk Usage",
+        "severity": "yellow",
+        "weight": 0,
+        "category": "disk",
+        "what": (
+            "Root volume disk usage exceeds 85%. While not immediately critical, you "
+            "are running low on free space."
+        ),
+        "why": (
+            "Leaving less than 15% free space can impact system performance and prevent "
+            "macOS from performing updates. Some applications need substantial temporary "
+            "space for operations like video editing or software compilation."
+        ),
+        "typical": (
+            "Common on Macs with smaller SSDs (256 GB or 512 GB) when working with "
+            "large projects or media files."
+        ),
+        "action": (
+            "Consider cleaning up unnecessary files. Check Storage in System Settings "
+            "for recommendations. Plan to free space before it becomes critical."
+        ),
+    },
     "new_connection": {
         "title": "New Connection Detected",
         "severity": "info",

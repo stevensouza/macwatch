@@ -1,7 +1,10 @@
-/* MacWatch Alerts Page */
+/* MacWatch Alerts Page — grouped by category */
 
 let alertData = null;
 let alertInfoData = null;
+
+const CATEGORIES = ['network', 'cpu', 'memory', 'disk'];
+const SEVERITY_ORDER = { red: 0, yellow: 1, blue: 2, info: 3 };
 
 // --- Initialization ---
 
@@ -34,39 +37,58 @@ document.addEventListener('DOMContentLoaded', async () => {
 function renderAlertAnalysis(alerts, summary) {
     const summaryEl = document.getElementById('alert-summary-text');
     if (alerts.length === 0) {
-        summaryEl.textContent = 'No alerts detected — all connections look normal';
+        summaryEl.textContent = 'No alerts detected — system looks healthy';
         document.getElementById('alerts-none').style.display = 'flex';
         return;
     }
 
+    // Build summary text from category counts
     const parts = [];
-    if (summary.red_count) parts.push(`${summary.red_count} critical`);
-    if (summary.yellow_count) parts.push(`${summary.yellow_count} warning`);
-    if (summary.blue_count) parts.push(`${summary.blue_count} info`);
-    const infos = alerts.filter(a => a.severity === 'info').length;
-    if (infos) parts.push(`${infos} new`);
-    summaryEl.textContent = parts.join(', ') + ` across ${summary.app_count} apps`;
+    if (summary.network_count) parts.push(`${summary.network_count} network`);
+    if (summary.cpu_count) parts.push(`${summary.cpu_count} CPU`);
+    if (summary.memory_count) parts.push(`${summary.memory_count} memory`);
+    if (summary.disk_count) parts.push(`${summary.disk_count} disk`);
+    summaryEl.textContent = parts.join(', ') + ` alert${alerts.length !== 1 ? 's' : ''}`;
 
-    // Group alerts by severity
-    const groups = { red: [], yellow: [], blue: [], info: [] };
+    // Group alerts by category
+    const groups = {};
+    CATEGORIES.forEach(cat => groups[cat] = []);
+
     alerts.forEach(alert => {
-        const bucket = groups[alert.severity] || groups.info;
-        bucket.push(alert);
+        const cat = alert.category || 'network';
+        if (groups[cat]) {
+            groups[cat].push(alert);
+        } else {
+            groups.network.push(alert);
+        }
     });
 
-    for (const [severity, groupAlerts] of Object.entries(groups)) {
-        const container = document.getElementById(`alerts-${severity}`);
+    // Sort alerts within each group by severity (red first)
+    for (const cat of CATEGORIES) {
+        groups[cat].sort((a, b) =>
+            (SEVERITY_ORDER[a.severity] || 4) - (SEVERITY_ORDER[b.severity] || 4)
+        );
+    }
+
+    for (const cat of CATEGORIES) {
+        const container = document.getElementById(`alerts-${cat}`);
         if (!container) continue;
 
+        const groupAlerts = groups[cat];
         if (groupAlerts.length === 0) {
             container.style.display = 'none';
             continue;
         }
 
         container.style.display = 'block';
-        document.getElementById(`alert-count-${severity}`).textContent = groupAlerts.length;
+        document.getElementById(`alert-count-${cat}`).textContent = groupAlerts.length;
 
-        const body = document.getElementById(`alert-body-${severity}`);
+        // Set the severity dot to the worst severity in this group
+        const worstSeverity = groupAlerts[0].severity; // already sorted
+        const dot = document.getElementById(`alert-dot-${cat}`);
+        if (dot) dot.className = `alert-severity-dot sev-${worstSeverity}`;
+
+        const body = document.getElementById(`alert-body-${cat}`);
         body.innerHTML = groupAlerts.map(alert => renderAlertCard(alert)).join('');
     }
 }
@@ -119,9 +141,9 @@ function toggleAlertDetail(headerEl) {
     if (icon) icon.classList.toggle('collapsed');
 }
 
-function toggleAlertGroup(severity) {
-    const body = document.getElementById(`alert-body-${severity}`);
-    const icon = document.getElementById(`toggle-${severity}`);
+function toggleAlertGroup(category) {
+    const body = document.getElementById(`alert-body-${category}`);
+    const icon = document.getElementById(`toggle-${category}`);
     if (body) body.classList.toggle('collapsed');
     if (icon) icon.classList.toggle('collapsed');
 }

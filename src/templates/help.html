@@ -22,36 +22,58 @@
         <span class="subtitle">Help</span>
     </header>
     <div class="help-content">
-        <a href="/" class="back-link">← Back to Dashboard</a>
-        <a href="/alerts" class="back-link" style="margin-left: 1rem;">→ Alerts</a>
-        <a href="/analysis" class="back-link" style="margin-left: 1rem;">→ AI Analysis</a>
+        <a href="/" class="back-link">&larr; Dashboard</a>
+        <a href="/processes" class="back-link" style="margin-left: 1rem;">&rarr; Processes</a>
+        <a href="/network" class="back-link" style="margin-left: 1rem;">&rarr; Network</a>
+        <a href="/alerts" class="back-link" style="margin-left: 1rem;">&rarr; Alerts</a>
+        <a href="/analysis" class="back-link" style="margin-left: 1rem;">&rarr; AI Analysis</a>
 
         <h2>1. What is MacWatch?</h2>
-        <p>MacWatch shows you what your Mac applications are doing on the network. It answers:</p>
+        <p>MacWatch is a system health dashboard for your Mac. It monitors CPU, memory, disk, network connections, and security indicators — all from a single interface. It runs entirely on your Mac at localhost:8077.</p>
+
+        <h2>2. Tabs</h2>
+        <p>MacWatch has five tabs:</p>
+        <table>
+            <tr><th>Tab</th><th>Purpose</th></tr>
+            <tr><td><strong>Dashboard</strong></td><td>Overview of system health: CPU/memory/disk gauges, top 5 CPU consumers, top 5 network talkers, and alert summary. A quick snapshot of everything.</td></tr>
+            <tr><td><strong>Processes</strong></td><td>Full sortable table of all active processes with CPU and memory usage. Click column headers to sort. System-wide CPU, memory, and disk stats shown at top. Click any row to see process details.</td></tr>
+            <tr><td><strong>Network</strong></td><td>All applications with active network connections, grouped by threat score. Expand cards to see individual connections with DNS, WHOIS, and threat flags. Includes search and filters.</td></tr>
+            <tr><td><strong>Alerts</strong></td><td>System alerts grouped by category (Network, CPU, Memory, Disk) with severity indicators and educational explanations for each alert type.</td></tr>
+            <tr><td><strong>AI Analysis</strong></td><td>Optional AI-powered assessment of security, performance, and system health. Supports Ollama (local), Claude API, Claude Web, and other providers.</td></tr>
+        </table>
+
+        <h3>Process Names</h3>
+        <p>For interpreted languages (Python, Java, Node.js, Ruby, etc.), MacWatch extracts the actual script or module name from the command line instead of showing the generic interpreter name. For example:</p>
         <ul>
-            <li>Which apps have open network connections?</li>
-            <li>What servers are they connecting to?</li>
-            <li>Is any of it suspicious?</li>
+            <li><code>python3 /path/to/run.py</code> shows as <strong>run.py</strong> instead of "python3"</li>
+            <li><code>java -jar myapp.jar</code> shows as <strong>myapp.jar</strong> instead of "java"</li>
+            <li><code>node server.js</code> shows as <strong>server.js</strong> instead of "node"</li>
+            <li><code>python3 -m flask run</code> shows as <strong>flask</strong> instead of "python3"</li>
         </ul>
-        <p>It runs entirely on your Mac. No data is sent anywhere.</p>
+        <p>The original binary name is shown as a muted hint next to the display name.</p>
 
-        <h2>2. Dashboard Overview</h2>
+        <h2>3. Dashboard Overview</h2>
+        <p>The Dashboard tab provides a quick snapshot:</p>
 <pre>
-┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
-│   12 Apps       │ │ 84 Connections   │ │  ↓ 47.3 MB in   │ │  ↑ 12.1 MB out  │
-└─────────────────┘ └─────────────────┘ └─────────────────┘ └─────────────────┘
+┌──── CPU ─────┐  ┌── Memory ───┐  ┌──── Disk ────┐
+│   24.9%      │  │   77.7%     │  │    5.0%      │
+│ ████████░░░░ │  │ ████████████│  │ █░░░░░░░░░░░ │
+│ Load: 3.42   │  │ 12.4 / 16GB │  │ 46 / 926 GB  │
+└──────────────┘  └─────────────┘  └──────────────┘
 
-ALERTS
-🔴  mystery-daemon is UNSIGNED and uploading 890 KB
-🟡  3 connections have no reverse DNS
+Top CPU Consumers          Top Network Talkers
+1. Brave Browser  12.3%    1. Brave Browser  ↓5.2MB ↑1.3MB
+2. python3         8.1%    2. Slack          ↓2.1MB ↑0.4MB
+...                        ...
+View all →                 View all →
 
-▼ Brave Browser  47 conn │ ↓ 5.2 MB ↑ 1.3 MB │ ✅ Signed  ✅ 0
-  github.com       140.82.114.25   443  TCP  ESTABLISHED  GitHub   US  ✅
-  protonmail.ch    185.70.42.71    443  TCP  ESTABLISHED  Proton   CH  ✅
+Alerts
+● Network: 3  ● CPU: 1  ● Memory: 0  ● Disk: 1
+View all →
 </pre>
 
-        <h2>3. Reading Application Cards</h2>
-        <p>Each app card header shows:</p>
+        <h2>4. Reading Network App Cards</h2>
+        <p>On the Network tab, each app card header shows:</p>
 <pre>
 ▼ Brave Browser
   47 connections │ ↓ 5.2 MB ↑ 1.3 MB │ CPU 0.8% MEM 0.4% │ ✅ Signed  ✅ 0
@@ -60,65 +82,63 @@ ALERTS
   count                                                     status      score
 </pre>
 
-        <h2>4. Threat Scores</h2>
+        <h2>5. Threat Scores</h2>
         <table>
             <tr><th>Score</th><th>Level</th><th>Color</th><th>Meaning</th></tr>
-            <tr><td>0</td><td>Clean</td><td>Green ✅</td><td>All connections look normal</td></tr>
-            <tr><td>1-2</td><td>Low</td><td>Yellow ⚠️</td><td>Minor concerns</td></tr>
-            <tr><td>3-5</td><td>Medium</td><td>Orange 🟠</td><td>Multiple concerns — investigate</td></tr>
-            <tr><td>6+</td><td>High</td><td>Red 🔴</td><td>Significant risk indicators</td></tr>
+            <tr><td>0</td><td>Clean</td><td>Green</td><td>All connections look normal</td></tr>
+            <tr><td>1-2</td><td>Low</td><td>Yellow</td><td>Minor concerns</td></tr>
+            <tr><td>3-5</td><td>Medium</td><td>Orange</td><td>Multiple concerns — investigate</td></tr>
+            <tr><td>6+</td><td>High</td><td>Red</td><td>Significant risk indicators</td></tr>
         </table>
 
-        <h3>Flags</h3>
+        <h3>Network Flags</h3>
         <table>
             <tr><th>Flag</th><th>Points</th><th>Meaning</th></tr>
-            <tr><td>🔴 Unsigned app</td><td>+3</td><td>No valid code signature</td></tr>
-            <tr><td>🔴 HTTP (plaintext)</td><td>+3</td><td>Data sent without encryption</td></tr>
-            <tr><td>🔴 High upload ratio</td><td>+3</td><td>Sending much more than receiving</td></tr>
-            <tr><td>🟡 Unusual port</td><td>+2</td><td>Non-standard port number</td></tr>
-            <tr><td>🟡 No reverse DNS</td><td>+2</td><td>IP has no hostname record</td></tr>
-            <tr><td>🟡 VPS provider</td><td>+2</td><td>IP belongs to hosting company</td></tr>
-            <tr><td>🟡 System daemon</td><td>+2</td><td>macOS daemon connecting externally</td></tr>
-            <tr><td>🔵 High retransmissions</td><td>+1</td><td>Network quality issue</td></tr>
-            <tr><td>🔵 Recv-Q backup</td><td>+1</td><td>App not reading data</td></tr>
-            <tr><td>🔵 Many unique IPs</td><td>+1</td><td>20+ different remote servers</td></tr>
-            <tr><td>🔵 LISTEN on 0.0.0.0</td><td>+1</td><td>Accepting network-wide connections</td></tr>
+            <tr><td>Unsigned app</td><td>+3</td><td>No valid code signature</td></tr>
+            <tr><td>HTTP (plaintext)</td><td>+3</td><td>Data sent without encryption</td></tr>
+            <tr><td>High upload ratio</td><td>+3</td><td>Sending much more than receiving</td></tr>
+            <tr><td>Unusual port</td><td>+2</td><td>Non-standard port number</td></tr>
+            <tr><td>No reverse DNS</td><td>+2</td><td>IP has no hostname record</td></tr>
+            <tr><td>VPS provider</td><td>+2</td><td>IP belongs to hosting company</td></tr>
+            <tr><td>System daemon</td><td>+2</td><td>macOS daemon connecting externally</td></tr>
+            <tr><td>High retransmissions</td><td>+1</td><td>Network quality issue</td></tr>
+            <tr><td>Recv-Q backup</td><td>+1</td><td>App not reading data</td></tr>
+            <tr><td>Many unique IPs</td><td>+1</td><td>20+ different remote servers</td></tr>
+            <tr><td>LISTEN on 0.0.0.0</td><td>+1</td><td>Accepting network-wide connections</td></tr>
         </table>
 
-        <h2>5. Connection Detail</h2>
-        <p>Click any connection row to see full details:</p>
-<pre>
-╔═════════════════════════════════════════════════════════╗
-║  Connection Detail                                     ║
-║                                                        ║
-║  App:       Brave Browser (PID 10053)                  ║
-║  Remote:    140.82.114.25:443                          ║
-║  Protocol:  TCP (HTTPS)                                ║
-║  State:     ESTABLISHED                                ║
-║                                                        ║
-║  DNS:       lb-140-82-114-25-iad.github.com            ║
-║  Org:       GitHub, Inc.                               ║
-║  Country:   US                                         ║
-║                                                        ║
-║  Threat: 0 ✅ — All factors normal                     ║
-╚═════════════════════════════════════════════════════════╝
-</pre>
-
-        <h2>6. Keyboard Shortcuts</h2>
+        <h3>Resource Alerts</h3>
+        <p>In addition to network threat flags, MacWatch generates alerts for CPU, memory, and disk issues. These are grouped by category on the Alerts page.</p>
         <table>
-            <tr><th>Key</th><th>Action</th></tr>
-            <tr><td>r</td><td>Refresh now</td></tr>
-            <tr><td>p</td><td>Pause/resume auto-refresh</td></tr>
-            <tr><td>/</td><td>Focus search box</td></tr>
-            <tr><td>Esc</td><td>Close popover / clear search</td></tr>
-            <tr><td>e</td><td>Expand all groups</td></tr>
-            <tr><td>c</td><td>Collapse all groups</td></tr>
-            <tr><td>?</td><td>Toggle help</td></tr>
+            <tr><th>Alert</th><th>Category</th><th>Severity</th><th>Threshold</th></tr>
+            <tr><td>System CPU critical</td><td>CPU</td><td>Red</td><td>System CPU &gt; 90%</td></tr>
+            <tr><td>System CPU high</td><td>CPU</td><td>Yellow</td><td>System CPU &gt; 75%</td></tr>
+            <tr><td>High per-app CPU</td><td>CPU</td><td>Yellow</td><td>Single process &gt; 80% CPU</td></tr>
+            <tr><td>System memory critical</td><td>Memory</td><td>Red</td><td>System memory &gt; 90%</td></tr>
+            <tr><td>System memory high</td><td>Memory</td><td>Yellow</td><td>System memory &gt; 80%</td></tr>
+            <tr><td>High per-app memory</td><td>Memory</td><td>Yellow</td><td>Single process &gt; 15% RAM</td></tr>
+            <tr><td>Disk critical</td><td>Disk</td><td>Red</td><td>Disk usage &gt; 95%</td></tr>
+            <tr><td>Disk high</td><td>Disk</td><td>Yellow</td><td>Disk usage &gt; 85%</td></tr>
         </table>
 
-        <h2>7. FAQ</h2>
+        <h2>6. Connection Detail</h2>
+        <p>On the Network tab, click any connection row to see full details including DNS, WHOIS, and threat analysis.</p>
+
+        <h2>7. Keyboard Shortcuts</h2>
+        <table>
+            <tr><th>Key</th><th>Action</th><th>Available On</th></tr>
+            <tr><td>r</td><td>Refresh now</td><td>Dashboard, Processes, Network</td></tr>
+            <tr><td>p</td><td>Pause/resume auto-refresh</td><td>Dashboard, Processes, Network</td></tr>
+            <tr><td>/</td><td>Focus search box</td><td>Network, Processes</td></tr>
+            <tr><td>Esc</td><td>Close modal / clear search</td><td>All tabs</td></tr>
+            <tr><td>e</td><td>Expand all groups</td><td>Network</td></tr>
+            <tr><td>c</td><td>Collapse all groups</td><td>Network</td></tr>
+            <tr><td>?</td><td>Open help page</td><td>All tabs</td></tr>
+        </table>
+
+        <h2>8. FAQ</h2>
         <p><strong>Q: Does MacWatch send my data anywhere?</strong><br>
-        No. It runs on localhost:8077 only. No data leaves your machine.</p>
+        No. It runs on localhost:8077 only. No data leaves your machine (unless you use a cloud AI provider on the AI Analysis tab).</p>
 
         <p><strong>Q: Why do some IPs show "(no rDNS)"?</strong><br>
         Not all IPs have reverse DNS records. Check the whois org name instead.</p>
@@ -126,11 +146,14 @@ ALERTS
         <p><strong>Q: How accurate is threat scoring?</strong><br>
         Scores are heuristic indicators, not security verdicts. A red score means "investigate," not "malware."</p>
 
+        <p><strong>Q: Why does Activity Monitor show more processes?</strong><br>
+        The Processes tab shows all processes with CPU usage above 0%. Activity Monitor includes idle processes too. The Network tab only shows processes with active network connections.</p>
+
+        <p><strong>Q: Why does my Python/Java app show a generic name?</strong><br>
+        MacWatch extracts script and module names from command-line arguments for common interpreters. If the name still looks generic, the process may have been launched with an unusual command pattern.</p>
+
         <p><strong>Q: Can MacWatch block connections?</strong><br>
         No. Use macOS Firewall or Little Snitch for blocking.</p>
-
-        <p><strong>Q: What are the Alerts and AI Analysis pages?</strong><br>
-        The Alerts page shows all current alerts grouped by severity with detailed educational explanations for each alert type. The AI Analysis page provides an optional AI-powered assessment of your system's security, performance, and health.</p>
 
         <p><strong>Q: Does AI Analysis send my data externally?</strong><br>
         It depends on the provider. <strong>Ollama</strong> runs entirely on your Mac — no data leaves your machine. Cloud providers (Claude API, Claude Web, etc.) send your MacWatch data to their API for analysis. AI analysis is completely optional and only happens when you explicitly click the button.</p>
@@ -141,9 +164,11 @@ ALERTS
         <em>Claude Web (uses your Pro/Max subscription):</em> Set <code>CLAUDE_SESSION_KEY</code> and <code>CLAUDE_ORG_ID</code> in a <code>.env</code> file at the project root. Get these from claude.ai &rarr; browser DevTools &rarr; Application &rarr; Cookies (<code>sessionKey</code>) and the URL path (<code>/api/organizations/{orgId}/...</code>).<br>
         The AI Analysis page will show setup instructions if a provider is not configured.</p>
 
-        <a href="/" class="back-link">← Back to Dashboard</a>
-        <a href="/alerts" class="back-link" style="margin-left: 1rem;">→ Alerts</a>
-        <a href="/analysis" class="back-link" style="margin-left: 1rem;">→ AI Analysis</a>
+        <a href="/" class="back-link">&larr; Dashboard</a>
+        <a href="/processes" class="back-link" style="margin-left: 1rem;">&rarr; Processes</a>
+        <a href="/network" class="back-link" style="margin-left: 1rem;">&rarr; Network</a>
+        <a href="/alerts" class="back-link" style="margin-left: 1rem;">&rarr; Alerts</a>
+        <a href="/analysis" class="back-link" style="margin-left: 1rem;">&rarr; AI Analysis</a>
     </div>
 </body>
 </html>

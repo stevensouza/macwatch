@@ -8,11 +8,16 @@ from collections import defaultdict
 
 from flask import Flask, jsonify, render_template, request
 
-from src.collectors import lsof, nettop, process
+from src.collectors import lsof, nettop, process, system
 from src.enrichment import dns, whois_lookup
 from src.analysis import threat, alert_info, ai_analyzer
-from src.utils import format_bytes, port_label
-from src.config import HOST, PORT, STANDARD_PORTS, AI_DEFAULT_PROVIDER
+from src.utils import format_bytes, port_label, friendly_process_name
+from src.config import (
+    HOST, PORT, STANDARD_PORTS, AI_DEFAULT_PROVIDER, TOP_PROCESSES_COUNT,
+    SYSTEM_CPU_HIGH, SYSTEM_CPU_CRITICAL,
+    SYSTEM_MEMORY_HIGH, SYSTEM_MEMORY_CRITICAL,
+    SYSTEM_DISK_HIGH, SYSTEM_DISK_CRITICAL,
+)
 
 app = Flask(__name__)
 
@@ -25,7 +30,7 @@ _known_pids = set()
 _known_pids_lock = threading.Lock()
 
 
-def _build_dashboard_data():
+def _build_dashboard_data(full_processes=False):
     """Collect all data and build the full dashboard payload."""
     # Collect raw data
     connections = lsof.collect()
@@ -100,6 +105,9 @@ def _build_dashboard_data():
             app_data["command"] = pi.get("command", "")
             app_data["lstart"] = pi.get("lstart", "")
             app_data["etime"] = pi.get("etime", "")
+            display_name, _ = friendly_process_name(
+                app_data["app"], pi.get("command", ""))
+            app_data["display_name"] = display_name
             codesign_info = process.check_codesign(pi["path"])
             app_data["signed"] = codesign_info["signed"]
             app_data["sign_authority"] = codesign_info.get("authority", "")
@@ -120,6 +128,7 @@ def _build_dashboard_data():
         codesign = app_data.get("codesign_info", {})
         app_dict = {
             "app": app_data["app"],
+            "display_name": app_data.get("display_name", app_data["app"]),
             "pid": app_data["pid"],
             "connection_count": len(app_data["connections"]),
             "bytes_in": app_data["bytes_in"],
@@ -169,6 +178,7 @@ def _build_dashboard_data():
                 "pid": app_data["pid"],
                 "severity": flag["severity"],
                 "type": flag["type"],
+                "category": flag.get("category", "network"),
                 "description": flag["description"],
                 "connection": flag.get("connection", ""),
             })
@@ -180,9 +190,14 @@ def _build_dashboard_data():
                 "pid": app_data["pid"],
                 "severity": "info",
                 "type": "new_connection",
+                "category": "network",
                 "description": f"New connection to {nc}",
                 "connection": nc,
             })
+
+    # Generate system-wide resource alerts
+    sys_stats = system.collect_system_stats()
+    _add_system_alerts(all_alerts, sys_stats)
 
     # Sort apps by threat score (highest first), then by name
     app_list.sort(key=lambda a: (-a["threat_score"], a["app"].lower()))
@@ -196,14 +211,43 @@ def _build_dashboard_data():
     total_bytes_out = sum(a["bytes_out"] for a in app_list)
     total_connections = sum(a["connection_count"] for a in app_list)
 
-    # Update known PIDs for kill validation
+    # Build top processes by CPU (all processes, not just network-connected)
+    network_pids = {a["pid"] for a in app_list}
+    top_procs_raw = [
+        {"pid": pid, **info}
+        for pid, info in ps_info.items()
+        if info["cpu"] > 0.0 and pid > 0
+    ]
+    top_procs_raw.sort(key=lambda p: p["cpu"], reverse=True)
+    if not full_processes:
+        top_procs_raw = top_procs_raw[:TOP_PROCESSES_COUNT]
+
+    # Update known PIDs — include all visible PIDs (network + top processes)
     with _known_pids_lock:
         _known_pids.clear()
         _known_pids.update(a["pid"] for a in app_list)
+        _known_pids.update(p["pid"] for p in top_procs_raw)
+
+    top_processes = []
+    for p in top_procs_raw:
+        name = os.path.basename(p["path"]) if p["path"] else str(p["pid"])
+        display, _ = friendly_process_name(name, p.get("command", ""))
+        top_processes.append({
+            "pid": p["pid"],
+            "name": name,
+            "display_name": display,
+            "cpu": p["cpu"],
+            "mem": p["mem"],
+            "command": p.get("command", ""),
+            "path": p.get("path", ""),
+            "has_network": p["pid"] in network_pids,
+        })
 
     return {
         "apps": app_list,
         "alerts": all_alerts,
+        "top_processes": top_processes,
+        "system_stats": sys_stats,
         "summary": {
             "app_count": len(app_list),
             "connection_count": total_connections,
@@ -215,8 +259,86 @@ def _build_dashboard_data():
             "red_count": sum(1 for a in all_alerts if a["severity"] == "red"),
             "yellow_count": sum(1 for a in all_alerts if a["severity"] == "yellow"),
             "blue_count": sum(1 for a in all_alerts if a["severity"] == "blue"),
+            "network_count": sum(1 for a in all_alerts if a.get("category") == "network"),
+            "cpu_count": sum(1 for a in all_alerts if a.get("category") == "cpu"),
+            "memory_count": sum(1 for a in all_alerts if a.get("category") == "memory"),
+            "disk_count": sum(1 for a in all_alerts if a.get("category") == "disk"),
         },
     }
+
+
+def _add_system_alerts(alerts, sys_stats):
+    """Generate system-wide resource alerts from system stats."""
+    cpu = sys_stats.get("cpu_percent", 0)
+    mem = sys_stats.get("mem_percent", 0)
+    disk = sys_stats.get("disk_percent", 0)
+
+    if cpu >= SYSTEM_CPU_CRITICAL:
+        alerts.append({
+            "app": "System",
+            "pid": 0,
+            "severity": "red",
+            "type": "system_cpu_critical",
+            "category": "cpu",
+            "description": f"System CPU at {cpu:.1f}%",
+            "connection": "",
+        })
+    elif cpu >= SYSTEM_CPU_HIGH:
+        alerts.append({
+            "app": "System",
+            "pid": 0,
+            "severity": "yellow",
+            "type": "system_cpu_high",
+            "category": "cpu",
+            "description": f"System CPU at {cpu:.1f}%",
+            "connection": "",
+        })
+
+    mem_used = sys_stats.get("mem_used_fmt", "")
+    mem_total = sys_stats.get("mem_total_fmt", "")
+    if mem >= SYSTEM_MEMORY_CRITICAL:
+        alerts.append({
+            "app": "System",
+            "pid": 0,
+            "severity": "red",
+            "type": "system_memory_critical",
+            "category": "memory",
+            "description": f"System memory at {mem:.1f}% ({mem_used} / {mem_total})",
+            "connection": "",
+        })
+    elif mem >= SYSTEM_MEMORY_HIGH:
+        alerts.append({
+            "app": "System",
+            "pid": 0,
+            "severity": "yellow",
+            "type": "system_memory_high",
+            "category": "memory",
+            "description": f"System memory at {mem:.1f}% ({mem_used} / {mem_total})",
+            "connection": "",
+        })
+
+    disk_used = sys_stats.get("disk_used_fmt", "")
+    disk_total = sys_stats.get("disk_total_fmt", "")
+    if disk >= SYSTEM_DISK_CRITICAL:
+        alerts.append({
+            "app": "System",
+            "pid": 0,
+            "severity": "red",
+            "type": "system_disk_critical",
+            "category": "disk",
+            "description": f"Disk usage at {disk:.1f}% ({disk_used} / {disk_total})",
+            "connection": "",
+        })
+    elif disk >= SYSTEM_DISK_HIGH:
+        alerts.append({
+            "app": "System",
+            "pid": 0,
+            "severity": "yellow",
+            "type": "system_disk_high",
+            "category": "disk",
+            "description": f"Disk usage at {disk:.1f}% ({disk_used} / {disk_total})",
+            "connection": "",
+        })
 
 
 def _check_new_connections(app_data):
@@ -259,13 +381,39 @@ def _is_private(addr):
 @app.route("/")
 def dashboard():
     initial_data = _build_dashboard_data()
-    return render_template("dashboard.html", initial_data=json.dumps(initial_data))
+    system_stats = initial_data["system_stats"]
+    return render_template("dashboard.html",
+                           initial_data=json.dumps(initial_data),
+                           system_data=json.dumps(system_stats),
+                           active_tab="dashboard")
+
+
+@app.route("/processes")
+def processes_page():
+    """Render the processes page."""
+    return render_template("processes.html", active_tab="processes")
+
+
+@app.route("/network")
+def network_page():
+    """Render the network page."""
+    initial_data = _build_dashboard_data()
+    return render_template("network.html",
+                           initial_data=json.dumps(initial_data),
+                           active_tab="network")
 
 
 @app.route("/api/connections")
 def api_connections():
-    data = _build_dashboard_data()
+    full = request.args.get("full_processes") == "1"
+    data = _build_dashboard_data(full_processes=full)
     return jsonify(data)
+
+
+@app.route("/api/system")
+def api_system():
+    """Return system-wide resource stats."""
+    return jsonify(system.collect_system_stats())
 
 
 @app.route("/api/whois/<ip>")
@@ -287,7 +435,7 @@ def api_process_detail(pid):
     """Return comprehensive details for a single process."""
     with _known_pids_lock:
         if pid not in _known_pids:
-            return jsonify({"error": "PID not found in active connections"}), 404
+            return jsonify({"error": "PID not found in active processes"}), 404
     detail = process.collect_process_detail(pid)
     return jsonify(detail)
 
@@ -297,7 +445,7 @@ def api_kill(pid):
     """Kill a process by PID. Only allows killing PIDs seen in the last refresh."""
     with _known_pids_lock:
         if pid not in _known_pids:
-            return jsonify({"error": "PID not found in active connections"}), 404
+            return jsonify({"error": "PID not found in active processes"}), 404
     try:
         os.kill(pid, signal.SIGTERM)
         return jsonify({"status": "ok", "pid": pid, "signal": "SIGTERM"})
@@ -310,13 +458,13 @@ def api_kill(pid):
 @app.route("/alerts")
 def alerts_page():
     """Render the alerts page."""
-    return render_template("alerts.html")
+    return render_template("alerts.html", active_tab="alerts")
 
 
 @app.route("/analysis")
 def analysis_page():
     """Render the AI analysis page."""
-    return render_template("analysis.html")
+    return render_template("analysis.html", active_tab="analysis")
 
 
 @app.route("/api/alert-info")

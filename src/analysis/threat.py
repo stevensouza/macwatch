@@ -4,6 +4,7 @@ from src.config import (
     STANDARD_PORTS, VPS_PROVIDERS, CLOUD_PROVIDERS, SYSTEM_DAEMONS,
     THREAT_WEIGHTS, UPLOAD_RATIO_THRESHOLD, UPLOAD_MINIMUM_BYTES,
     RETRANSMISSION_THRESHOLD, UNIQUE_IP_THRESHOLD, SCORE_LEVELS,
+    APP_CPU_THRESHOLD, APP_MEMORY_THRESHOLD,
 )
 
 
@@ -29,6 +30,7 @@ def score_app(app_data):
     if not app_data.get("signed", True):
         flags.append({
             "type": "unsigned_app",
+            "category": "network",
             "severity": "red",
             "weight": THREAT_WEIGHTS["unsigned_app"],
             "description": "Application has no valid code signature",
@@ -42,6 +44,7 @@ def score_app(app_data):
         ratio = bytes_out / bytes_in if bytes_in > 0 else float("inf")
         flags.append({
             "type": "high_upload_ratio",
+            "category": "network",
             "severity": "red",
             "weight": THREAT_WEIGHTS["high_upload_ratio"],
             "description": f"Upload ratio {ratio:.0f}:1 (sending {ratio:.0f}x more than receiving)",
@@ -57,6 +60,7 @@ def score_app(app_data):
     if len(unique_ips) > UNIQUE_IP_THRESHOLD:
         flags.append({
             "type": "many_unique_ips",
+            "category": "network",
             "severity": "blue",
             "weight": THREAT_WEIGHTS["many_unique_ips"],
             "description": f"Connected to {len(unique_ips)} unique remote IPs",
@@ -66,9 +70,32 @@ def score_app(app_data):
     if app_data.get("re_tx", 0) > RETRANSMISSION_THRESHOLD:
         flags.append({
             "type": "high_retransmissions",
+            "category": "network",
             "severity": "blue",
             "weight": THREAT_WEIGHTS["high_retransmissions"],
             "description": f"{app_data['re_tx']} retransmissions (network quality issue)",
+        })
+
+    # Yellow: High per-app CPU usage
+    cpu = app_data.get("cpu", 0.0)
+    if cpu > APP_CPU_THRESHOLD:
+        flags.append({
+            "type": "high_cpu",
+            "category": "cpu",
+            "severity": "yellow",
+            "weight": 0,
+            "description": f"Process using {cpu:.1f}% CPU",
+        })
+
+    # Yellow: High per-app memory usage
+    mem = app_data.get("mem", 0.0)
+    if mem > APP_MEMORY_THRESHOLD:
+        flags.append({
+            "type": "high_memory",
+            "category": "memory",
+            "severity": "yellow",
+            "weight": 0,
+            "description": f"Process using {mem:.1f}% of system memory",
         })
 
     total_score = sum(f["weight"] for f in flags)
@@ -92,6 +119,7 @@ def score_connection(conn, app_data):
     if remote_port == 80 and state == "ESTABLISHED":
         flags.append({
             "type": "http_plaintext",
+            "category": "network",
             "severity": "red",
             "weight": THREAT_WEIGHTS["http_plaintext"],
             "description": "Plaintext HTTP — data transmitted without encryption",
@@ -103,6 +131,7 @@ def score_connection(conn, app_data):
             and state == "ESTABLISHED"):
         flags.append({
             "type": "unusual_port",
+            "category": "network",
             "severity": "yellow",
             "weight": THREAT_WEIGHTS["unusual_port"],
             "description": f"Non-standard port {remote_port}",
@@ -115,6 +144,7 @@ def score_connection(conn, app_data):
         if not _is_private(addr):
             flags.append({
                 "type": "no_rdns",
+                "category": "network",
                 "severity": "yellow",
                 "weight": THREAT_WEIGHTS["no_rdns"],
                 "description": f"No reverse DNS for {addr}",
@@ -128,6 +158,7 @@ def score_connection(conn, app_data):
             if provider in whois_org:
                 flags.append({
                     "type": "vps_provider",
+                    "category": "network",
                     "severity": "yellow",
                     "weight": THREAT_WEIGHTS["vps_provider"],
                     "description": f"IP belongs to hosting provider ({conn.get('whois_org', '')})",
@@ -141,6 +172,7 @@ def score_connection(conn, app_data):
         if not _is_private(conn["remote_addr"]):
             flags.append({
                 "type": "system_daemon_external",
+                "category": "network",
                 "severity": "yellow",
                 "weight": THREAT_WEIGHTS["system_daemon_external"],
                 "description": f"System daemon '{app_data['app']}' connecting externally",
@@ -151,6 +183,7 @@ def score_connection(conn, app_data):
     if state == "LISTEN" and conn.get("local_addr") in ("*", "0.0.0.0", "::"):
         flags.append({
             "type": "listen_all_interfaces",
+            "category": "network",
             "severity": "blue",
             "weight": THREAT_WEIGHTS["listen_all_interfaces"],
             "description": f"Listening on all interfaces (port {conn.get('local_port')})",
