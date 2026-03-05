@@ -247,6 +247,7 @@ def _build_dashboard_data(full_processes=False):
         "apps": app_list,
         "alerts": all_alerts,
         "top_processes": top_processes,
+        "system_stats": sys_stats,
         "summary": {
             "app_count": len(app_list),
             "connection_count": total_connections,
@@ -380,7 +381,7 @@ def _is_private(addr):
 @app.route("/")
 def dashboard():
     initial_data = _build_dashboard_data()
-    system_stats = system.collect_system_stats()
+    system_stats = initial_data["system_stats"]
     return render_template("dashboard.html",
                            initial_data=json.dumps(initial_data),
                            system_data=json.dumps(system_stats),

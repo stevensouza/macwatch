@@ -138,13 +138,16 @@ def _collect_disk(stats):
         if len(lines) >= 2:
             parts = lines[1].split()
             if len(parts) >= 4:
-                # df -k reports in 1K blocks
-                total = int(parts[1]) * 1024
+                # df -k reports in 1K blocks.  On macOS APFS the "total"
+                # column is the container size, not usable volume capacity.
+                # Use used + available for an accurate percentage.
                 used = int(parts[2]) * 1024
-                stats["disk_total"] = total
+                available = int(parts[3]) * 1024
+                capacity = used + available
+                stats["disk_total"] = capacity
                 stats["disk_used"] = used
-                stats["disk_percent"] = round(used / total * 100, 1) if total else 0.0
-                stats["disk_total_fmt"] = format_bytes(total)
+                stats["disk_percent"] = round(used / capacity * 100, 1) if capacity else 0.0
+                stats["disk_total_fmt"] = format_bytes(capacity)
                 stats["disk_used_fmt"] = format_bytes(used)
     except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):
         pass
