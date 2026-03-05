@@ -1,69 +1,32 @@
-/* MacWatch Dashboard */
-
-let refreshInterval = 120000;
-let refreshTimer = null;
-let paused = false;
-let expandedApps = new Set();
-let currentData = null;
-let initialRenderDone = false;
-
-// --- Tooltip definitions ---
-const TOOLTIPS = {
-    // Column headers
-    'Remote Host': 'The resolved domain name of the remote server (via reverse DNS lookup). Shows "(no rDNS)" if the IP has no hostname record.',
-    'IP': 'The IP address of the remote server this app is communicating with.',
-    'Port': 'The network port on the remote server. Common ports: 443 = HTTPS (encrypted web), 80 = HTTP (unencrypted), 22 = SSH, 53 = DNS.',
-    'Proto': 'The transport protocol. TCP = reliable ordered delivery (web, email). UDP = fast but unordered (video, DNS, gaming).',
-    'State': 'The TCP connection state. ESTABLISHED = actively connected. LISTEN = waiting for incoming connections. CLOSE_WAIT = remote side disconnected.',
-    'Org': 'The organization that owns this IP address, determined via WHOIS lookup. Helps identify who your apps are talking to.',
-    'CC': 'Two-letter country code where the IP address is registered.',
-    'Status': 'Threat assessment for this connection based on port, DNS, signing, and traffic pattern analysis.',
-
-    // App meta
-    'conn': 'Current open network sockets for this application (snapshot at each refresh).',
-    'traffic_in': '↓ Total bytes received (downloaded) by this app — cumulative since the process started, not per-refresh.',
-    'traffic_out': '↑ Total bytes sent (uploaded) by this app — cumulative since the process started, not per-refresh.',
-    'cpu': 'CPU usage — instantaneous snapshot at the time of each refresh, not an average.',
-    'mem': 'Memory (RAM) usage — instantaneous snapshot at the time of each refresh.',
-
-    // Threat scores
-    'threat_green': 'Threat Score: 0 (Clean). All connections look normal. No suspicious indicators detected.',
-    'threat_yellow': 'Threat Score: Low. Minor concerns detected, usually benign. Worth a glance.',
-    'threat_orange': 'Threat Score: Medium. Multiple concerns detected. Recommended to investigate.',
-    'threat_red': 'Threat Score: High. Significant risk indicators found. You should investigate this application.',
-
-    // Sign badges
-    'signed': 'This app has a valid Apple code signature, confirming it was distributed by an identified developer.',
-    'unsigned': 'WARNING: This app has no valid code signature. It cannot be verified as legitimate software.',
-};
+/* MacWatch — Dashboard Overview */
 
 // --- Initialization ---
 
 document.addEventListener('DOMContentLoaded', () => {
-    if (window.__INITIAL_DATA__) {
+    if (window.__INITIAL_DATA__ && window.__SYSTEM_DATA__) {
         currentData = window.__INITIAL_DATA__;
-        renderDashboard(currentData);
-        const initTime = new Date().toLocaleTimeString();
-        document.getElementById('last-refresh').textContent = 'Updated ' + initTime;
-        document.getElementById('last-refresh-time').textContent = initTime;
+        renderOverview(currentData, window.__SYSTEM_DATA__);
+        updateRefreshTime();
     } else {
         refresh();
     }
     startAutoRefresh();
-    setupKeyboardShortcuts();
-    setupFilterListeners();
+    setupRefreshIntervalListener();
+    setupBaseKeyboardShortcuts();
 });
 
 // --- Data Fetching ---
 
 async function refresh() {
     try {
-        const resp = await fetch('/api/connections');
-        currentData = await resp.json();
-        renderDashboard(currentData);
-        const refreshTime = new Date().toLocaleTimeString();
-        document.getElementById('last-refresh').textContent = 'Updated ' + refreshTime;
-        document.getElementById('last-refresh-time').textContent = refreshTime;
+        const [connResp, sysResp] = await Promise.all([
+            fetch('/api/connections'),
+            fetch('/api/system')
+        ]);
+        currentData = await connResp.json();
+        const sysData = await sysResp.json();
+        renderOverview(currentData, sysData);
+        updateRefreshTime();
     } catch (err) {
         console.error('Refresh failed:', err);
     }
@@ -71,612 +34,151 @@ async function refresh() {
 
 // --- Rendering ---
 
-function renderDashboard(data) {
-    renderSummary(data.summary);
-    updateAnalysisTabBadge(data.alerts, data.summary);
-    renderApps(data.apps);
+function renderOverview(data, sys) {
+    renderSystemCards(sys);
+    renderTopCPU(data.top_processes);
+    renderTopNetwork(data.apps);
+    renderAlertSummary(data.alerts, data.summary);
+    updateAlertTabBadge(data.alerts, data.summary);
 }
 
-function renderSummary(summary) {
-    document.getElementById('app-count').textContent = summary.app_count;
-    document.getElementById('conn-count').textContent = summary.connection_count;
-    document.getElementById('bytes-in').textContent = summary.bytes_in_fmt;
-    document.getElementById('bytes-out').textContent = summary.bytes_out_fmt;
+function renderSystemCards(sys) {
+    // CPU
+    document.getElementById('ov-cpu-value').textContent = sys.cpu_percent + '%';
+    document.getElementById('ov-cpu-bar').style.width = Math.min(sys.cpu_percent, 100) + '%';
+    document.getElementById('ov-cpu-bar').className = 'gauge-fill ' +
+        (sys.cpu_percent > 80 ? 'gauge-red' : sys.cpu_percent > 50 ? 'gauge-yellow' : 'gauge-green');
+    document.getElementById('ov-load').textContent =
+        `Load: ${sys.load_avg_1.toFixed(2)} / ${sys.load_avg_5.toFixed(2)} / ${sys.load_avg_15.toFixed(2)}`;
+
+    // Memory
+    document.getElementById('ov-mem-value').textContent = sys.mem_percent + '%';
+    document.getElementById('ov-mem-bar').style.width = Math.min(sys.mem_percent, 100) + '%';
+    document.getElementById('ov-mem-bar').className = 'gauge-fill ' +
+        (sys.mem_percent > 85 ? 'gauge-red' : sys.mem_percent > 70 ? 'gauge-yellow' : 'gauge-green');
+    document.getElementById('ov-mem-detail').textContent = `${sys.mem_used_fmt} / ${sys.mem_total_fmt}`;
+
+    // Disk
+    document.getElementById('ov-disk-value').textContent = sys.disk_percent + '%';
+    document.getElementById('ov-disk-bar').style.width = Math.min(sys.disk_percent, 100) + '%';
+    document.getElementById('ov-disk-bar').className = 'gauge-fill ' +
+        (sys.disk_percent > 90 ? 'gauge-red' : sys.disk_percent > 75 ? 'gauge-yellow' : 'gauge-green');
+    document.getElementById('ov-disk-detail').textContent = `${sys.disk_used_fmt} / ${sys.disk_total_fmt}`;
 }
 
-function updateAnalysisTabBadge(alerts, summary) {
-    const badge = document.getElementById('tab-alert-badge');
-    if (!badge) return;
+function renderTopCPU(topProcesses) {
+    const container = document.getElementById('ov-top-cpu');
+    if (!container || !topProcesses) return;
 
-    // Only count non-info alerts (red, yellow, blue)
-    const count = (summary.red_count || 0) + (summary.yellow_count || 0) + (summary.blue_count || 0);
-
-    if (count === 0) {
-        badge.style.display = 'none';
+    const top5 = topProcesses.slice(0, 5);
+    if (top5.length === 0) {
+        container.innerHTML = '<div class="top-procs-empty">No active processes</div>';
         return;
     }
 
-    badge.textContent = count;
-    badge.style.display = 'inline-block';
-
-    // Color by highest severity present
-    if (summary.red_count > 0) {
-        badge.className = 'tab-alert-badge badge-red';
-    } else if (summary.yellow_count > 0) {
-        badge.className = 'tab-alert-badge badge-yellow';
-    } else {
-        badge.className = 'tab-alert-badge badge-blue';
-    }
-}
-
-function renderApps(apps) {
-    const container = document.getElementById('app-list');
-    const search = document.getElementById('search').value.toLowerCase();
-    const stateFilter = document.getElementById('state-filter').value;
-    const threatFilter = document.getElementById('threat-filter').value;
-    const showLocalhost = document.getElementById('show-localhost').checked;
-
-    const filtered = apps.filter(app => {
-        if (search) {
-            const searchable = [
-                app.app,
-                ...app.connections.map(c => c.remote_host),
-                ...app.connections.map(c => c.remote_addr),
-                ...app.connections.map(c => c.whois_org),
-                ...app.connections.map(c => String(c.remote_port)),
-            ].join(' ').toLowerCase();
-            if (!searchable.includes(search)) return false;
-        }
-
-        if (threatFilter === 'red' && app.threat_color !== 'red') return false;
-        if (threatFilter === 'yellow' && !['red', 'yellow', 'orange'].includes(app.threat_color)) return false;
-        if (threatFilter === 'hidegreen' && app.threat_color === 'green') return false;
-
-        return true;
-    });
-
-    container.innerHTML = filtered.map((app, i) => {
-        const appKey = `${app.app}:${app.pid}`;
-        const isExpanded = expandedApps.has(appKey);
-
-        let conns = app.connections;
-        if (stateFilter) {
-            conns = conns.filter(c => c.state === stateFilter);
-        }
-        if (!showLocalhost) {
-            conns = conns.filter(c => {
-                const addr = c.remote_addr || c.local_addr || '';
-                return !addr.startsWith('127.') && addr !== '::1' && addr !== 'localhost';
-            });
-        }
-
-        const signClass = app.signed ? 'signed' : 'unsigned';
-        const signIcon = app.signed ? svgCheck() : svgX();
-        const signLabel = app.signed ? (app.sign_authority || 'Signed') : 'Unsigned';
-        const signTooltip = app.signed ? TOOLTIPS.signed + ' Signed by: ' + (app.sign_authority || 'Unknown') : TOOLTIPS.unsigned;
-
-        const threatTooltip = TOOLTIPS['threat_' + app.threat_color] || '';
-
-        const animClass = initialRenderDone ? ' no-animate' : '';
-        const animStyle = initialRenderDone ? '' : `animation-delay: ${Math.min(i * 0.03, 0.3)}s`;
-        const cmdHint = app.command && app.command !== app.path
-            ? `<span class="app-command-hint">${esc(truncate(app.command, 80))}</span>` : '';
-
-        return `<div class="app-card threat-${app.threat_color}${animClass}" style="${animStyle}">
-            <div class="app-header" onclick="toggleApp('${escAttr(appKey)}')">
-                <span class="app-toggle ${isExpanded ? 'expanded' : ''}">
-                    <svg viewBox="0 0 20 20" fill="none"><path d="M7 4l6 6-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                </span>
-                <span class="app-name">${esc(app.app)}${cmdHint}</span>
-                <span class="threat-badge ${app.threat_color}" data-tooltip="${escAttr(threatTooltip)}">
-                    ${app.threat_score}
-                </span>
-                <button class="app-info-btn" onclick="event.stopPropagation(); showProcessDetail(this)" data-app='${escAttr(JSON.stringify(app))}' data-tooltip="View process details">
-                    <svg viewBox="0 0 16 16" fill="none" width="14" height="14"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.2"/><path d="M8 7v4M8 5.5v.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
-                </button>
-                <div class="app-meta">
-                    <span class="app-meta-item" data-tooltip="${TOOLTIPS.conn}">
-                        ${app.connection_count} conn
-                    </span>
-                    <span class="app-meta-item meta-in" data-tooltip="${TOOLTIPS.traffic_in}">
-                        <svg viewBox="0 0 12 12" fill="none"><path d="M6 2v8M3 7l3 3 3-3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                        ${app.bytes_in_fmt}
-                    </span>
-                    <span class="app-meta-item meta-out" data-tooltip="${TOOLTIPS.traffic_out}">
-                        <svg viewBox="0 0 12 12" fill="none"><path d="M6 10V2M3 5l3-3 3 3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                        ${app.bytes_out_fmt}
-                    </span>
-                    <span class="app-meta-item" data-tooltip="${TOOLTIPS.cpu}">
-                        <span class="meta-label">CPU</span> ${app.cpu.toFixed(1)}%
-                    </span>
-                    <span class="app-meta-item" data-tooltip="${TOOLTIPS.mem}">
-                        <span class="meta-label">MEM</span> ${app.mem.toFixed(1)}%
-                    </span>
-                    <span class="sign-badge ${signClass}" data-tooltip="${escAttr(signTooltip)}">
-                        ${signIcon} ${app.signed ? 'Signed' : 'Unsigned'}
-                    </span>
-                </div>
-            </div>
-            <div class="conn-table-wrapper ${isExpanded ? 'expanded' : ''}">
-                ${renderConnTable(conns, app)}
-            </div>
-        </div>`;
-    }).join('');
-
-    if (!initialRenderDone) initialRenderDone = true;
-}
-
-function renderConnTable(conns, app) {
-    if (conns.length === 0) {
-        return '<div class="conn-empty">No matching connections</div>';
-    }
-
-    const rows = conns.map(c => {
-        const isListen = (c.state || '').toUpperCase() === 'LISTEN';
-        const hostClass = isListen ? 'conn-listen-local' : (c.remote_host === '(no rDNS)' ? 'conn-no-rdns' : 'conn-host');
-        const displayHost = isListen ? (c.local_addr || '*') : (c.remote_host || '-');
-        const displayAddr = isListen ? (c.local_addr || '*') : (c.remote_addr || '-');
-        const displayPort = isListen ? (c.local_port || '-') : (c.remote_port || '-');
-        const portLabel = isListen
-            ? (c.local_port ? `<span class="conn-port-label">${esc(portLabelForLocal(c.local_port))}</span>` : '')
-            : (c.port_label ? `<span class="conn-port-label">${esc(c.port_label)}</span>` : '');
-        const stateClass = (c.state || '').toLowerCase().replace('_', '-');
-        const flagClass = connectionFlagClass(c.flags);
-        const flagTooltip = connectionFlagTooltip(c.flags);
-
-        return `<tr onclick="showConnectionDetail(${JSON.stringify(esc(JSON.stringify(c))).slice(1, -1)}, '${escAttr(app.app)}', ${app.pid})">
-            <td class="${hostClass}">${esc(displayHost)}</td>
-            <td>${esc(displayAddr)}</td>
-            <td>${displayPort}${portLabel}</td>
-            <td>${esc(c.protocol)}</td>
-            <td><span class="conn-state ${stateClass}">${esc(c.state || '-')}</span></td>
-            <td>${isListen ? '-' : esc(c.whois_org || '-')}</td>
-            <td>${isListen ? '-' : esc(c.whois_country || '-')}</td>
-            <td><span class="conn-flag ${flagClass}" data-tooltip="${escAttr(flagTooltip)}"></span></td>
-        </tr>`;
-    }).join('');
-
-    return `<table class="conn-table">
+    const rows = renderProcessTableRows(top5, { showRank: true, maxCommand: 40 });
+    container.innerHTML = `<table class="top-procs-table compact">
         <thead><tr>
-            <th data-tooltip="${escAttr(TOOLTIPS['Remote Host'])}">Remote Host</th>
-            <th data-tooltip="${escAttr(TOOLTIPS['IP'])}">IP</th>
-            <th data-tooltip="${escAttr(TOOLTIPS['Port'])}">Port</th>
-            <th data-tooltip="${escAttr(TOOLTIPS['Proto'])}">Proto</th>
-            <th data-tooltip="${escAttr(TOOLTIPS['State'])}">State</th>
-            <th data-tooltip="${escAttr(TOOLTIPS['Org'])}">Org</th>
-            <th data-tooltip="${escAttr(TOOLTIPS['CC'])}">CC</th>
-            <th data-tooltip="${escAttr(TOOLTIPS['Status'])}">Status</th>
+            <th>#</th>
+            <th>Process</th>
+            <th>PID</th>
+            <th>CPU</th>
+            <th>MEM</th>
+            <th>Command</th>
         </tr></thead>
         <tbody>${rows}</tbody>
     </table>`;
 }
 
-// --- Connection Detail Modal ---
+function renderTopNetwork(apps) {
+    const container = document.getElementById('ov-top-network');
+    if (!container || !apps) return;
 
-function showConnectionDetail(connJson, appName, pid) {
-    const conn = JSON.parse(connJson);
-    const modal = document.getElementById('modal-overlay');
-    const content = document.getElementById('modal-content');
+    // Sort by total traffic (in + out) descending, take top 5
+    const sorted = [...apps].sort((a, b) =>
+        (b.bytes_in + b.bytes_out) - (a.bytes_in + a.bytes_out)
+    ).slice(0, 5);
 
-    const flagsHtml = (conn.flags && conn.flags.length > 0)
-        ? conn.flags.map(f => `<div class="modal-flag">
-            <span class="modal-flag-weight ${f.severity}">+${f.weight}</span>
-            <span>${esc(f.description)}</span>
-        </div>`).join('')
-        : '<div class="modal-all-clear"><span class="conn-flag flag-green"></span> No flags - connection looks normal</div>';
-
-    content.innerHTML = `
-        <h3>Connection Detail</h3>
-
-        <div class="modal-section">
-            <h4>Connection</h4>
-            <div class="detail-grid">
-                <span class="detail-label">App</span>
-                <span class="detail-value">${esc(appName)} <span style="color:var(--text-muted)">(PID ${pid})</span></span>
-                <span class="detail-label">Local</span>
-                <span class="detail-value">${esc(conn.local_addr || '?')}:${conn.local_port || '?'}</span>
-                <span class="detail-label">Remote</span>
-                <span class="detail-value">${esc(conn.remote_addr || '?')}:${conn.remote_port || '?'}</span>
-                <span class="detail-label">Protocol</span>
-                <span class="detail-value">${esc(conn.protocol)} ${conn.port_label ? '<span style="color:var(--text-muted)">(' + esc(conn.port_label) + ')</span>' : ''}</span>
-                <span class="detail-label">State</span>
-                <span class="detail-value">${esc(conn.state || '-')}</span>
-                <span class="detail-label">Address Type</span>
-                <span class="detail-value">${esc(conn.type || '-')}</span>
-            </div>
-        </div>
-
-        <div class="modal-section">
-            <h4>DNS</h4>
-            <div class="detail-grid">
-                <span class="detail-label">Reverse DNS</span>
-                <span class="detail-value" style="${conn.remote_host === '(no rDNS)' ? 'color:var(--text-muted);font-style:italic' : ''}">${esc(conn.remote_host || '(no rDNS)')}</span>
-            </div>
-        </div>
-
-        <div class="modal-section">
-            <h4>WHOIS</h4>
-            <div class="detail-grid">
-                <span class="detail-label">Organization</span>
-                <span class="detail-value">${esc(conn.whois_org || '-')}</span>
-                <span class="detail-label">Country</span>
-                <span class="detail-value">${esc(conn.whois_country || '-')}</span>
-            </div>
-            ${conn.remote_addr ? `<a href="#" class="modal-link" onclick="loadFullWhois('${esc(conn.remote_addr)}'); return false;">
-                Load full WHOIS data
-                <svg viewBox="0 0 12 12" fill="none" width="12" height="12"><path d="M4 8l4-4M4 4h4v4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </a>` : ''}
-        </div>
-
-        <div class="modal-section" id="full-whois"></div>
-
-        <div class="modal-section">
-            <h4>Threat Assessment</h4>
-            ${flagsHtml}
-        </div>
-    `;
-
-    modal.classList.add('visible');
-}
-
-async function loadFullWhois(ip) {
-    const container = document.getElementById('full-whois');
-    container.innerHTML = '<h4>Full WHOIS</h4><div style="color: var(--text-muted); font-size: 0.82rem;">Loading...</div>';
-
-    try {
-        const resp = await fetch(`/api/whois/${ip}`);
-        const data = await resp.json();
-        container.innerHTML = `<h4>Full WHOIS</h4>
-            <div class="detail-grid">
-                <span class="detail-label">Organization</span>
-                <span class="detail-value">${esc(data.org || '-')}</span>
-                <span class="detail-label">Network</span>
-                <span class="detail-value">${esc(data.netname || '-')} ${data.cidr ? '<span style="color:var(--text-muted)">(' + esc(data.cidr) + ')</span>' : ''}</span>
-                <span class="detail-label">Country</span>
-                <span class="detail-value">${esc(data.country || '-')}</span>
-                <span class="detail-label">City</span>
-                <span class="detail-value">${esc(data.city || '-')}</span>
-            </div>`;
-    } catch (err) {
-        container.innerHTML = '<h4>Full WHOIS</h4><div style="color: var(--red); font-size: 0.82rem;">Failed to load</div>';
+    if (sorted.length === 0) {
+        container.innerHTML = '<div class="top-procs-empty">No network-connected apps</div>';
+        return;
     }
+
+    const rows = sorted.map((app, i) => {
+        const displayName = app.display_name || app.app;
+        const threatClass = app.threat_color;
+        return `<tr>
+            <td class="top-proc-rank">${i + 1}</td>
+            <td class="top-proc-name">${esc(displayName)}</td>
+            <td class="ov-net-conns">${app.connection_count}</td>
+            <td class="ov-net-in">
+                <svg viewBox="0 0 12 12" fill="none" width="10" height="10"><path d="M6 2v8M3 7l3 3 3-3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                ${app.bytes_in_fmt}
+            </td>
+            <td class="ov-net-out">
+                <svg viewBox="0 0 12 12" fill="none" width="10" height="10"><path d="M6 10V2M3 5l3-3 3 3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                ${app.bytes_out_fmt}
+            </td>
+            <td><span class="threat-badge ${threatClass}" style="font-size:0.7rem">${app.threat_score}</span></td>
+        </tr>`;
+    }).join('');
+
+    container.innerHTML = `<table class="top-procs-table compact">
+        <thead><tr>
+            <th>#</th>
+            <th>App</th>
+            <th data-tooltip="Open network connections">Conn</th>
+            <th>Traffic In</th>
+            <th>Traffic Out</th>
+            <th>Threat</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+    </table>`;
 }
 
-function closeModal() {
-    document.getElementById('modal-overlay').classList.remove('visible');
-}
-
-// --- Process Detail Modal ---
-
-function showProcessDetail(btn) {
-    const app = JSON.parse(btn.getAttribute('data-app'));
-    const modal = document.getElementById('modal-overlay');
-    const content = document.getElementById('modal-content');
-
-    const signClass = app.signed ? 'signed' : 'unsigned';
-    const signLabel = app.signed ? 'Valid' : 'Not signed';
-
-    const flagsHtml = (app.threat_flags && app.threat_flags.length > 0)
-        ? app.threat_flags.map(f => `<div class="modal-flag">
-            <span class="modal-flag-weight ${f.severity}">+${f.weight}</span>
-            <span>${esc(f.description)}</span>
-        </div>`).join('')
-        : '<div class="modal-all-clear"><span class="conn-flag flag-green"></span> No threat flags</div>';
-
-    content.innerHTML = `
-        <h3>Process Detail: ${esc(app.app)}</h3>
-
-        <div class="modal-section">
-            <h4>Process</h4>
-            <div class="detail-grid">
-                <span class="detail-label">PID</span>
-                <span class="detail-value">${app.pid}</span>
-                <span class="detail-label">Binary Path</span>
-                <span class="detail-value" style="word-break:break-all">${esc(app.path || 'Unknown')}</span>
-                <span class="detail-label">Command</span>
-                <span class="detail-value" style="word-break:break-all;font-size:0.76rem">${esc(app.command || app.path || 'Unknown')}</span>
-                <span class="detail-label">Started</span>
-                <span class="detail-value">${esc(app.lstart || 'Unknown')}</span>
-                <span class="detail-label">Uptime</span>
-                <span class="detail-value">${esc(app.etime || 'Unknown')}</span>
-                <span class="detail-label">CPU</span>
-                <span class="detail-value">${app.cpu.toFixed(1)}%</span>
-                <span class="detail-label">Memory</span>
-                <span class="detail-value">${app.mem.toFixed(1)}%</span>
-            </div>
-        </div>
-
-        <div class="modal-section" id="process-deep-detail">
-            <h4>System Detail</h4>
-            <div style="color: var(--text-muted); font-size: 0.82rem;">Loading...</div>
-        </div>
-
-        <div class="modal-section">
-            <h4>Code Signing</h4>
-            <div class="detail-grid">
-                <span class="detail-label">Status</span>
-                <span class="detail-value"><span class="sign-badge ${signClass}">${signLabel}</span></span>
-                <span class="detail-label">Authority</span>
-                <span class="detail-value">${esc(app.sign_authority || '-')}</span>
-                <span class="detail-label">Team ID</span>
-                <span class="detail-value">${esc(app.team_id || '-')}</span>
-                <span class="detail-label">Identifier</span>
-                <span class="detail-value">${esc(app.identifier || '-')}</span>
-            </div>
-        </div>
-
-        <div class="modal-section">
-            <h4>Network</h4>
-            <div class="detail-grid">
-                <span class="detail-label">Connections</span>
-                <span class="detail-value">${app.connection_count}</span>
-                <span class="detail-label">Traffic In</span>
-                <span class="detail-value">${app.bytes_in_fmt}</span>
-                <span class="detail-label">Traffic Out</span>
-                <span class="detail-value">${app.bytes_out_fmt}</span>
-            </div>
-        </div>
-
-        <div class="modal-section">
-            <h4>Threat Assessment</h4>
-            <div class="detail-grid">
-                <span class="detail-label">Score</span>
-                <span class="detail-value"><span class="threat-badge ${app.threat_color}">${app.threat_score}</span></span>
-                <span class="detail-label">Level</span>
-                <span class="detail-value">${esc(app.threat_level)}</span>
-            </div>
-            ${flagsHtml}
-        </div>
-
-        <div class="modal-section modal-actions">
-            <button class="kill-btn" onclick="confirmKill(${app.pid}, '${escAttr(app.app)}')">
-                <svg viewBox="0 0 16 16" fill="none" width="14" height="14"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-                Terminate Process
-            </button>
-        </div>
-    `;
-
-    modal.classList.add('visible');
-    loadProcessDeepDetail(app.pid);
-}
-
-async function loadProcessDeepDetail(pid) {
-    const container = document.getElementById('process-deep-detail');
+function renderAlertSummary(alerts, summary) {
+    const container = document.getElementById('ov-alert-summary');
     if (!container) return;
 
-    try {
-        const resp = await fetch(`/api/process/${pid}`);
-        if (!resp.ok) {
-            container.innerHTML = '<h4>System Detail</h4><div style="color: var(--text-muted); font-size: 0.82rem;">Unable to load details</div>';
-            return;
-        }
-        const d = await resp.json();
+    const totalAlerts = (summary.red_count || 0) + (summary.yellow_count || 0) + (summary.blue_count || 0);
 
-        const parentChainHtml = d.parent_chain && d.parent_chain.length > 0
-            ? d.parent_chain.map(p =>
-                `<span style="color:var(--text-muted);font-size:0.76rem">${esc(p.name)} (${p.pid})</span>`
-            ).join(' → ')
-            : '-';
-
-        const openFilesHtml = d.open_files && d.open_files.length > 0
-            ? `<a href="#" class="modal-link" onclick="toggleOpenFiles(event)">
-                Show ${d.open_files_count} open file${d.open_files_count !== 1 ? 's' : ''}
-                <svg viewBox="0 0 12 12" fill="none" width="12" height="12"><path d="M4 8l4-4M4 4h4v4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              </a>
-              <div id="open-files-list" style="display:none;margin-top:0.4rem;font-size:0.72rem;color:var(--text-muted);max-height:200px;overflow-y:auto;word-break:break-all">
-                ${d.open_files.map(f => `<div style="padding:1px 0">${esc(f)}</div>`).join('')}
-              </div>`
-            : '';
-
-        container.innerHTML = `
-            <h4>System Detail</h4>
-            <div class="detail-grid">
-                <span class="detail-label">User</span>
-                <span class="detail-value">${esc(d.user || '-')}</span>
-                <span class="detail-label">Working Dir</span>
-                <span class="detail-value" style="word-break:break-all;font-size:0.76rem">${esc(d.cwd || '-')}</span>
-                <span class="detail-label">Parent</span>
-                <span class="detail-value" style="word-break:break-all;font-size:0.76rem">${esc(d.parent_command || '-')}</span>
-                <span class="detail-label">Parent Chain</span>
-                <span class="detail-value">${parentChainHtml}</span>
-                <span class="detail-label">State</span>
-                <span class="detail-value">${esc(d.state || '-')}</span>
-                <span class="detail-label">Nice / Priority</span>
-                <span class="detail-value">${d.nice != null ? d.nice : '-'} / ${d.priority != null ? d.priority : '-'}</span>
-                <span class="detail-label">RSS (Physical)</span>
-                <span class="detail-value">${esc(d.rss_fmt || '-')}</span>
-                <span class="detail-label">VSZ (Virtual)</span>
-                <span class="detail-value">${esc(d.vsz_fmt || '-')}</span>
-                <span class="detail-label">Threads</span>
-                <span class="detail-value">${d.thread_count || '-'}</span>
-                <span class="detail-label">Open Files</span>
-                <span class="detail-value">${d.open_files_count || 0}</span>
-                <span class="detail-label">Loaded Libs</span>
-                <span class="detail-value">${d.loaded_libs_count || 0}</span>
-                <span class="detail-label">Process Group</span>
-                <span class="detail-value">${d.pgid != null ? d.pgid : '-'}</span>
-            </div>
-            ${openFilesHtml}
-        `;
-    } catch (err) {
-        container.innerHTML = '<h4>System Detail</h4><div style="color: var(--red); font-size: 0.82rem;">Failed to load details</div>';
+    if (totalAlerts === 0) {
+        container.innerHTML = `<div class="ov-alert-clear">
+            <span class="conn-flag flag-green"></span>
+            All clear — no alerts detected
+        </div>`;
+        return;
     }
-}
 
-function toggleOpenFiles(event) {
-    event.preventDefault();
-    const list = document.getElementById('open-files-list');
-    if (list) {
-        list.style.display = list.style.display === 'none' ? 'block' : 'none';
-    }
-}
-
-function confirmKill(pid, appName) {
-    const confirmed = confirm(
-        `Are you sure you want to terminate "${appName}" (PID ${pid})?\n\n` +
-        `This sends SIGTERM which allows the process to clean up and exit gracefully.`
-    );
-    if (confirmed) {
-        killProcess(pid);
-    }
-}
-
-async function killProcess(pid) {
-    try {
-        const resp = await fetch(`/api/kill/${pid}`, { method: 'POST' });
-        const result = await resp.json();
-        if (resp.ok) {
-            closeModal();
-            setTimeout(refresh, 1000);
-        } else {
-            alert(`Failed to terminate process: ${result.error}`);
-        }
-    } catch (err) {
-        alert(`Error: ${err.message}`);
-    }
-}
-
-// --- App Expand/Collapse ---
-
-function toggleApp(appKey) {
-    if (expandedApps.has(appKey)) {
-        expandedApps.delete(appKey);
-    } else {
-        expandedApps.add(appKey);
-    }
-    if (currentData) renderApps(currentData.apps);
-}
-
-function expandAll() {
-    if (!currentData) return;
-    currentData.apps.forEach(a => expandedApps.add(`${a.app}:${a.pid}`));
-    renderApps(currentData.apps);
-}
-
-function collapseAll() {
-    expandedApps.clear();
-    if (currentData) renderApps(currentData.apps);
-}
-
-// --- Auto-Refresh ---
-
-function startAutoRefresh() {
-    if (refreshTimer) clearInterval(refreshTimer);
-    if (refreshInterval > 0 && !paused) {
-        refreshTimer = setInterval(refresh, refreshInterval);
-    }
-    updateRefreshIndicator();
-}
-
-function togglePause() {
-    paused = !paused;
-    document.getElementById('pause-label').textContent = paused ? 'Resume' : 'Pause';
-    const icon = document.getElementById('pause-icon');
-    if (paused) {
-        icon.innerHTML = '<path d="M6 4l10 6-10 6V4z" fill="currentColor"/>';
-    } else {
-        icon.innerHTML = '<rect x="5" y="4" width="3.5" height="12" rx="1" fill="currentColor"/><rect x="11.5" y="4" width="3.5" height="12" rx="1" fill="currentColor"/>';
-    }
-    updateRefreshIndicator();
-    startAutoRefresh();
-}
-
-function updateRefreshIndicator() {
-    const indicator = document.getElementById('refresh-indicator');
-    if (paused || refreshInterval === 0) {
-        indicator.classList.add('paused');
-    } else {
-        indicator.classList.remove('paused');
-    }
-}
-
-document.getElementById('refresh-interval').addEventListener('change', (e) => {
-    refreshInterval = parseInt(e.target.value);
-    startAutoRefresh();
-});
-
-// --- Filters ---
-
-function setupFilterListeners() {
-    ['search', 'state-filter', 'threat-filter', 'show-localhost'].forEach(id => {
-        document.getElementById(id).addEventListener('change', () => {
-            if (currentData) renderApps(currentData.apps);
-        });
-    });
-    document.getElementById('search').addEventListener('input', () => {
-        if (currentData) renderApps(currentData.apps);
-    });
-}
-
-// --- Keyboard Shortcuts ---
-
-function setupKeyboardShortcuts() {
-    document.addEventListener('keydown', (e) => {
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') {
-            if (e.key === 'Escape') {
-                e.target.blur();
-                e.target.value = '';
-                if (currentData) renderApps(currentData.apps);
-            }
-            return;
-        }
-
-        switch (e.key) {
-            case 'r': refresh(); break;
-            case 'p': togglePause(); break;
-            case '/': e.preventDefault(); document.getElementById('search').focus(); break;
-            case 'e': expandAll(); break;
-            case 'c': collapseAll(); break;
-            case 'Escape': closeModal(); break;
-            case '?': window.location.href = '/help'; break;
+    // Find worst severity per category
+    const catSeverity = {};
+    const sevOrder = { red: 0, yellow: 1, blue: 2, info: 3 };
+    alerts.forEach(a => {
+        const cat = a.category || 'network';
+        const cur = catSeverity[cat];
+        if (!cur || sevOrder[a.severity] < sevOrder[cur]) {
+            catSeverity[cat] = a.severity;
         }
     });
-}
 
-// --- Helpers ---
+    const categories = [
+        { key: 'network', label: 'Network', count: summary.network_count || 0 },
+        { key: 'cpu', label: 'CPU', count: summary.cpu_count || 0 },
+        { key: 'memory', label: 'Memory', count: summary.memory_count || 0 },
+        { key: 'disk', label: 'Disk', count: summary.disk_count || 0 },
+    ];
 
-function connectionFlagClass(flags) {
-    if (!flags || flags.length === 0) return 'flag-green';
-    const hasRed = flags.some(f => f.severity === 'red');
-    if (hasRed) return 'flag-red';
-    const hasYellow = flags.some(f => f.severity === 'yellow' || f.severity === 'orange');
-    if (hasYellow) return 'flag-yellow';
-    return 'flag-green';
-}
+    let html = '<div class="ov-alert-bars">';
+    for (const cat of categories) {
+        if (cat.count === 0) continue;
+        const sev = catSeverity[cat.key] || 'blue';
+        html += `<div class="ov-alert-bar ov-alert-${sev}">
+            <span class="alert-severity-dot sev-${sev}"></span>
+            <span class="ov-alert-label">${cat.label}</span>
+            <span class="ov-alert-count">${cat.count}</span>
+        </div>`;
+    }
+    html += '</div>';
 
-function connectionFlagTooltip(flags) {
-    if (!flags || flags.length === 0) return 'Clean: No issues detected with this connection';
-    return flags.map(f => f.description).join('. ');
-}
-
-function svgCheck() {
-    return '<svg viewBox="0 0 12 12" fill="none" width="12" height="12"><path d="M2.5 6l2.5 2.5 4.5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-}
-
-function svgX() {
-    return '<svg viewBox="0 0 12 12" fill="none" width="12" height="12"><path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
-}
-
-function esc(str) {
-    if (str === null || str === undefined) return '';
-    const div = document.createElement('div');
-    div.textContent = String(str);
-    return div.innerHTML;
-}
-
-function escAttr(str) {
-    if (str === null || str === undefined) return '';
-    return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-
-function truncate(str, len) {
-    if (!str || str.length <= len) return str;
-    return str.substring(0, len) + '\u2026';
-}
-
-function portLabelForLocal(port) {
-    const labels = {80:'HTTP', 443:'HTTPS', 8080:'HTTP-Alt', 8443:'HTTPS-Alt',
-                    22:'SSH', 53:'DNS', 5353:'mDNS', 3000:'Dev', 5000:'Dev',
-                    8077:'MacWatch'};
-    return labels[port] || '';
+    container.innerHTML = html;
 }

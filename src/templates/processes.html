@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block title %} — Processes{% endblock %}
+
+{% block main %}
+    <!-- System Stats -->
+    <div class="sys-stats-bar">
+        <div class="sys-stat-card">
+            <div class="sys-stat-header">
+                <svg viewBox="0 0 20 20" fill="none" width="16" height="16">
+                    <rect x="2" y="2" width="16" height="16" rx="3" stroke="currentColor" stroke-width="1.3"/>
+                    <path d="M6 14V8M10 14V6M14 14v-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+                <span class="sys-stat-title">CPU</span>
+                <span class="sys-stat-value" id="sys-cpu">--</span>
+            </div>
+            <div class="stat-bar"><div class="stat-bar-fill bar-green" id="sys-cpu-bar" style="width:0%"></div></div>
+            <div class="sys-stat-sub" id="sys-load">Load: --</div>
+        </div>
+        <div class="sys-stat-card">
+            <div class="sys-stat-header">
+                <svg viewBox="0 0 20 20" fill="none" width="16" height="16">
+                    <rect x="4" y="2" width="12" height="16" rx="2" stroke="currentColor" stroke-width="1.3"/>
+                    <path d="M7 12h6M7 9h6M7 6h3" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity="0.5"/>
+                </svg>
+                <span class="sys-stat-title">Memory</span>
+                <span class="sys-stat-value" id="sys-mem">--</span>
+            </div>
+            <div class="stat-bar"><div class="stat-bar-fill bar-green" id="sys-mem-bar" style="width:0%"></div></div>
+            <div class="sys-stat-sub" id="sys-mem-detail">--</div>
+        </div>
+        <div class="sys-stat-card">
+            <div class="sys-stat-header">
+                <svg viewBox="0 0 20 20" fill="none" width="16" height="16">
+                    <circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.3"/>
+                    <circle cx="10" cy="10" r="2.5" stroke="currentColor" stroke-width="1"/>
+                    <path d="M10 3v2M10 15v2" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity="0.4"/>
+                </svg>
+                <span class="sys-stat-title">Disk</span>
+                <span class="sys-stat-value" id="sys-disk">--</span>
+            </div>
+            <div class="stat-bar"><div class="stat-bar-fill bar-green" id="sys-disk-bar" style="width:0%"></div></div>
+            <div class="sys-stat-sub" id="sys-disk-detail">--</div>
+        </div>
+    </div>
+
+    <!-- Process Table -->
+    <div class="dashboard-section">
+        <div class="section-header" style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+            <h2 class="section-title">
+                <svg viewBox="0 0 20 20" fill="none" width="18" height="18">
+                    <path d="M3 17V7h3v10H3zM8.5 17V3h3v14h-3zM14 17v-7h3v7h-3z"
+                          stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                All Processes
+            </h2>
+            <span id="process-count" class="section-subtitle" style="padding-left:0;margin-top:0"></span>
+            <div class="process-search-wrapper">
+                <svg class="search-icon" viewBox="0 0 20 20" fill="none" width="14" height="14"><circle cx="8.5" cy="8.5" r="5.5" stroke="currentColor" stroke-width="1.5"/><path d="M13 13L17 17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                <input type="text" id="process-search" placeholder="Filter processes..." />
+            </div>
+        </div>
+
+        <table class="top-procs-table full-width">
+            <thead><tr>
+                <th class="sort-header" data-sort="name" onclick="sortBy('name')">Process <span class="sort-arrow"></span></th>
+                <th class="sort-header" data-sort="pid" onclick="sortBy('pid')">PID <span class="sort-arrow"></span></th>
+                <th class="sort-header sort-active" data-sort="cpu" onclick="sortBy('cpu')" data-tooltip="Instantaneous CPU usage snapshot at refresh time">CPU <span class="sort-arrow"></span></th>
+                <th class="sort-header" data-sort="mem" onclick="sortBy('mem')" data-tooltip="Physical memory usage as percentage of total RAM">MEM <span class="sort-arrow"></span></th>
+                <th data-tooltip="Full command line used to launch this process">Command</th>
+            </tr></thead>
+            <tbody id="process-table-body"></tbody>
+        </table>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+    <script src="/static/js/processes.js"></script>
+{% endblock %}

@@ -81,6 +81,21 @@ UPLOAD_MINIMUM_BYTES = 1_000_000  # ignore ratio below 1 MB
 RETRANSMISSION_THRESHOLD = 1000
 UNIQUE_IP_THRESHOLD = 20
 
+# Per-app resource thresholds
+APP_CPU_THRESHOLD = 80.0         # yellow: single app > 80% CPU
+APP_MEMORY_THRESHOLD = 15.0      # yellow: single app > 15% system RAM
+
+# System-wide resource thresholds
+SYSTEM_CPU_HIGH = 75.0           # yellow
+SYSTEM_CPU_CRITICAL = 90.0       # red
+SYSTEM_MEMORY_HIGH = 80.0        # yellow
+SYSTEM_MEMORY_CRITICAL = 90.0    # red
+SYSTEM_DISK_HIGH = 85.0          # yellow
+SYSTEM_DISK_CRITICAL = 95.0      # red
+
+# Top Processes
+TOP_PROCESSES_COUNT = 15
+
 # Cache TTLs (seconds)
 DNS_CACHE_TTL = 600  # 10 minutes
 WHOIS_CACHE_TTL = 86400  # 24 hours
