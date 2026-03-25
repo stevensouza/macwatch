@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const resp = await fetch('/api/ai-config');
         aiConfig = await resp.json();
         renderAIControls();
+        restoreCachedAnalysis();
     } catch (err) {
         document.getElementById('ai-analysis').innerHTML =
             '<div class="ai-message ai-message-error">Failed to load AI configuration. Is MacWatch running?</div>';
@@ -129,6 +130,8 @@ async function runAIAnalysis() {
     loading.style.display = 'flex';
     errorEl.style.display = 'none';
     resultEl.style.display = 'none';
+    resultEl.classList.remove('stale');
+    hideStaleBanner();
     const analysisStart = Date.now();
     startElapsedTimer();
 
@@ -159,7 +162,9 @@ async function runAIAnalysis() {
     }
 }
 
-function renderAIResult(data) {
+const ANALYSIS_STORAGE_KEY = 'macwatch-ai-analysis';
+
+function renderAIResult(data, isFromCache = false) {
     const resultEl = document.getElementById('ai-result');
     const verdictEl = document.getElementById('ai-verdict');
     const summaryEl = document.getElementById('ai-summary');
@@ -183,6 +188,61 @@ function renderAIResult(data) {
     bodyEl.innerHTML = markdownToHtml(data.raw_response);
     metaEl.textContent = `Analyzed by ${data.provider || 'AI'} on ${data._timestamp || 'unknown'} (${data._elapsed || '?'}s)`;
     resultEl.style.display = 'block';
+
+    if (!isFromCache) {
+        // Save to localStorage for persistence across tab switches
+        const cached = Object.assign({}, data, { _isoTimestamp: new Date().toISOString() });
+        try {
+            localStorage.setItem(ANALYSIS_STORAGE_KEY, JSON.stringify(cached));
+        } catch (e) { /* storage full or unavailable — ignore */ }
+        resultEl.classList.remove('stale');
+        hideStaleBanner();
+    }
+}
+
+function restoreCachedAnalysis() {
+    try {
+        const raw = localStorage.getItem(ANALYSIS_STORAGE_KEY);
+        if (!raw) return;
+        const data = JSON.parse(raw);
+        renderAIResult(data, true);
+        updateStaleBanner(data._isoTimestamp);
+    } catch (e) { /* corrupt data — ignore */ }
+}
+
+function updateStaleBanner(isoTimestamp) {
+    const banner = document.getElementById('ai-stale-banner');
+    const resultEl = document.getElementById('ai-result');
+    if (!banner || !isoTimestamp) return;
+
+    const analysisTime = new Date(isoTimestamp);
+    const ageMs = Date.now() - analysisTime.getTime();
+    const ageMins = Math.floor(ageMs / 60000);
+
+    let agoText;
+    if (ageMins < 1) {
+        agoText = 'just now';
+    } else if (ageMins < 60) {
+        agoText = `${ageMins} minute${ageMins !== 1 ? 's' : ''} ago`;
+    } else {
+        const ageHours = Math.floor(ageMins / 60);
+        if (ageHours < 24) {
+            agoText = `${ageHours} hour${ageHours !== 1 ? 's' : ''} ago`;
+        } else {
+            const ageDays = Math.floor(ageHours / 24);
+            agoText = `${ageDays} day${ageDays !== 1 ? 's' : ''} ago`;
+        }
+    }
+
+    const displayTime = analysisTime.toLocaleString();
+    banner.innerHTML = `<span class="stale-icon">&#9201;</span> Cached analysis from ${displayTime} (${agoText}) — may not reflect current system state. Run a new analysis to update.`;
+    banner.style.display = 'flex';
+    resultEl.classList.add('stale');
+}
+
+function hideStaleBanner() {
+    const banner = document.getElementById('ai-stale-banner');
+    if (banner) banner.style.display = 'none';
 }
 
 function markdownToHtml(text) {
